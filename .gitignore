@@ -1,0 +1,41 @@
+# What must not reach the tree. This is a convenience and not a control: the
+# list of things that may never be committed is in
+# docs/decisions/0006-everything-here-is-public.md, and nothing here refuses a
+# file somebody adds with `git add -f`.
+
+# Build output. Anchored to the root so a directory of the same name inside an
+# experiment is not ignored by accident.
+/bin/
+/dist/
+/out/
+/build/
+
+# Local scratch. A working directory somebody keeps beside the tree, never part
+# of it. Also anchored, for the same reason.
+/scratch/
+/tmp/
+
+# Editor and tooling state.
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+
+# Operating system leftovers.
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local environment. These names carry secrets often enough to be ignored by
+# default, which does not make committing one impossible. Key and certificate
+# extensions are deliberately not listed: a fixture under testdata/ may
+# legitimately carry one, and an ignore rule that silently swallows a fixture is
+# worse than the rule is worth.
+.env
+.env.*
+
+# Language-specific output is deliberately absent for the same reason the
+# editor configuration has no language sections: which language the runner is
+# built in is decided in issue #2, and the answer brings its own list.
