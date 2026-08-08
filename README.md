@@ -11,4 +11,11 @@ What survives the argument is written down in
 decided, what it applies to, what else was considered and what each rejected
 option would have cost, and is replaced by a later record rather than edited.
 
+Because everything here is public, some things may never be committed. No
+credential, token or key, including expired ones. No personal data of any kind.
+No copy of a real media library, real account data or real logs from a running
+server. No file whose licence forbids it being here. The reasoning behind the
+list is in
+[docs/decisions/0006-everything-here-is-public.md](docs/decisions/0006-everything-here-is-public.md).
+
 See [NOTICE.md](NOTICE.md) for the intended-use notice.
