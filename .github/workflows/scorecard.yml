@@ -3,9 +3,9 @@
 # Scorecard scores the repository against the OpenSSF supply-chain best-practice
 # checks (Branch-Protection, Token-Permissions, Pinned-Dependencies,
 # Dangerous-Workflow, etc.) and uploads the findings as SARIF to the
-# code-scanning tab. The score is treated as a checklist, not a guarantee: each
-# check is triaged (fixed or documented-accept), same as the other security
-# insights.
+# code-scanning tab. The score is meant to be treated as a checklist and not as a
+# guarantee, with each check either fixed or accepted in writing. Nothing does
+# that triage today; issue #27 is where it happens.
 #
 # Runs where publishing is valid: on push to the default branch, on a weekly
 # schedule (keeps the Maintained check fresh and re-scores on upstream changes),
@@ -17,10 +17,11 @@
 # SHA-pinned with a version comment, checkout runs with persist-credentials:false,
 # permissions are declared read-only at the top level and the write scopes are
 # granted only on the job that needs them. This is a self-audit only - it does
-# not build, test, or touch the publish/release pipeline. Note: publish_results
-# below publishes the OpenSSF supply-chain *score* to the OpenSSF API (the public
-# badge), not any software artifact - it is unrelated to the plugin release
-# pipeline and only works when run from the default branch.
+# not build or test anything, and this repository publishes nothing today. Note:
+# publish_results below publishes the OpenSSF supply-chain *score* to the OpenSSF
+# API (the public badge), not any software artifact. When issue #41 builds the
+# release workflow, that is a separate route and this job is still no part of it.
+# publish_results only works when run from the default branch.
 name: Scorecard supply-chain security
 
 on:

@@ -13,10 +13,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # No `name:` on this job: the "Protect main" ruleset's required status check
-  # matches the literal check-run name, which defaults to the job id
-  # ("dependency-review") when no `name:` is set. Overriding it here would
-  # rename the check run and silently break the required-status-check gate.
+  # No `name:` on this job: the check-run name defaults to the job id
+  # ("dependency-review") when no `name:` is set, and a required status check
+  # matches that literal name. The ruleset on this board is called `gate` and
+  # requires no status check today, so overriding the name would break nothing
+  # yet. Issue #26 makes the surviving checks required, and from then on a job
+  # renamed in passing removes itself from the required set while the tab still
+  # looks green. Issue #71 builds the refusal that catches that.
   dependency-review:
     runs-on: ubuntu-latest
     timeout-minutes: 10
