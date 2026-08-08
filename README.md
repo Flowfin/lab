@@ -18,4 +18,9 @@ server. No file whose licence forbids it being here. The reasoning behind the
 list is in
 [docs/decisions/0006-everything-here-is-public.md](docs/decisions/0006-everything-here-is-public.md).
 
+Nothing here uploads, phones home or reports usage, and real data an experiment
+measures against stays on the machine it is already on.
+[docs/privacy.md](docs/privacy.md) is the whole position, including what it does
+not cover.
+
 See [NOTICE.md](NOTICE.md) for the intended-use notice.
