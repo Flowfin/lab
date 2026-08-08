@@ -1,0 +1,30 @@
+# The checks this repository grows are text checks. They read tracked files byte
+# by byte, so every checkout has to agree on what those bytes are. This file is
+# what makes them agree, and it lands before the first checker exists.
+
+# Tracked text is stored with LF in git and checked out with LF everywhere.
+# `eol=lf` is unconditional: it overrides core.autocrlf, so a contributor whose
+# git converts by default still gets the same bytes as everybody else, and a
+# carriage return in a diff means somebody typed one.
+* text=auto eol=lf
+
+# The runner's own fixtures have to survive byte for byte. A fixture that exists
+# to prove a carriage return is refused loses that carriage return on the way
+# into git under the rule above, and the test then proves nothing while staying
+# green. `-text` turns every translation off for this tree, in both directions.
+testdata/** -text
+
+# Binary formats, marked so that no translation is attempted and so that a diff
+# does not try to render them as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.tar binary
+*.xz binary
+*.woff binary
+*.woff2 binary

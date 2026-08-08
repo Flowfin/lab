@@ -1,0 +1,31 @@
+# Editors read this and produce the bytes .gitattributes would otherwise have to
+# correct on the way into git. The point is to prevent the problem rather than
+# catch it, so the two files say the same thing and neither is the only copy.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# YAML is whitespace-significant and two spaces is what the workflows already in
+# this tree use.
+[*.{yml,yaml}]
+indent_size = 2
+
+# Markdown carries prose. Trailing whitespace is still trimmed here, because
+# nothing in this tree uses the two-space line break and a rule with one
+# exception is a rule people stop trusting.
+[*.md]
+max_line_length = 80
+
+# Makefiles take a tab or they do not run, whatever any other rule says.
+[Makefile]
+indent_style = tab
+
+# Language-specific sections are deliberately absent. Which language the runner
+# is built in is decided in issue #2, and a section written before that answer
+# would be a guess that editors then enforce.
