@@ -51,7 +51,12 @@ import (
 // reads the time in exactly one place and everything downstream is given the
 // value, so the suite supplies a date rather than whatever the machine says and
 // an assertion about a date stays true next week.
-var fixedNow = time.Date(2026, 8, 9, 12, 0, 0, 0, time.UTC)
+//
+// It is deliberately not today. A fixed value that happened to be the day the
+// suite ran would pass identically whether the code used the value it was given
+// or reached for the clock a second time, and the whole point of the parameter
+// is that those two are different. Any second read moves every number below.
+var fixedNow = time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
 
 // casesDir is where the cases live. Decision record 0002 puts the runner's
 // own fixtures at the root of the tree rather than beside the package, so the

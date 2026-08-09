@@ -1,6 +1,6 @@
 Slug: one
 State: asking
-Question-Written: 2026-08-09
+Question-Written: 2026-09-15
 
 ## Question
 

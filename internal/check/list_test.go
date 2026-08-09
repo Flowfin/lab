@@ -59,8 +59,8 @@ func TestTheWaitingColumnIsCountedFromTheClockItWasGiven(t *testing.T) {
 		days    int
 		counted bool
 	}{
-		{slug: "oldest-question", days: 100, counted: true},
-		{slug: "newer-question", days: 25, counted: true},
+		{slug: "oldest-question", days: 137, counted: true},
+		{slug: "newer-question", days: 62, counted: true},
 		// Nothing is waiting once it has stopped, whichever way it stopped.
 		{slug: "already-answered", counted: false},
 		{slug: "given-up", counted: false},
