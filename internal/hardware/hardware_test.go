@@ -10,14 +10,20 @@ import (
 	"testing"
 )
 
-// TestMain prints the disclosure on every default run. That line is the whole
-// point of the harness being separate: a run that covered less than the whole
-// set must not be readable as one that covered it and found nothing.
+// TestMain says what the run covered, and it says it at the end rather than at
+// the start, because that is where a reader looks after the last line of
+// output. On a default run that is the disclosure: this harness was not asked
+// for and nothing in it ran. On a run that asked for it, it is the count of
+// how many of its tests executed and how many did not, and what each one that
+// did not was missing.
+//
+// The exit code comes from the same place. A run asked for and delivering
+// nothing reports its own code, because no assertion breaking is not the same
+// as coverage having been produced.
 func TestMain(m *testing.M) {
-	if !Asked() {
-		fmt.Println(Disclosure())
-	}
-	os.Exit(m.Run())
+	report, code := Report(m.Run())
+	fmt.Print(report)
+	os.Exit(code)
 }
 
 // TestTheHarnessIsNotInTheDefaultRun holds the exclusion rather than trusting

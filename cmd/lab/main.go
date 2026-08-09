@@ -12,9 +12,15 @@ import (
 )
 
 // The exit codes. Decision record 0011 is the contract and this is the only
-// place the numbers appear, so a caller keyed on one of them is reading the
-// record whether or not anybody told it so. A fifth code supersedes that
-// record rather than being added here.
+// place the three the runner returns appear, so a caller keyed on one of them
+// is reading the record whether or not anybody told it so. A fifth code
+// supersedes that record rather than being added here.
+//
+// The fourth code the record fixes is not here. `3`, for a run that was asked
+// for something and delivered nothing, belongs to the integration-hardware
+// harness and is declared where its producer is, in internal/hardware. Record
+// 0011 refuses a code written into the runner as a branch nothing can reach,
+// and that is what one here would be.
 const (
 	// exitClean means the run completed and refused nothing. It does not
 	// mean the tree is good, only that nothing this runner judges was found
