@@ -8,9 +8,11 @@ package check
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"unicode/utf8"
 )
@@ -24,6 +26,39 @@ const ExperimentsDir = "experiments"
 // RecordName is the file that holds an experiment's record. Decision record
 // 0002 fixes its location; its shape is decided separately.
 const RecordName = "EXPERIMENT.md"
+
+// FixturesDir holds the runner's own fixtures. Record 0002 says they are
+// fixtures and are not experiments, which is why the two checks below walk
+// past it: a fixture tree exists to be refused, and a runner that refused this
+// repository for carrying the trees it is proved with would be a runner nobody
+// could run here.
+const FixturesDir = "testdata"
+
+// gitDir is the checkout's own machinery rather than part of the tree record
+// 0002 describes. That record fixes the layout against what git tracks, which
+// it shows with `git ls-tree -d --name-only HEAD`, and that command never
+// prints this directory. Refusing it would refuse every checkout, so it is
+// walked past at the root and never descended into.
+const gitDir = ".git"
+
+// rootDirectories is the set record 0002 names at the root of the tree,
+// written here as well as there because a check that reads a list out of a
+// document is a check that goes quiet when the document is reworded. Adding a
+// directory at the root is a change to that record and to this set, which is
+// the cost the record takes on deliberately.
+//
+// Files at the root are not in it and are not judged. They arrive with the
+// scaffolding, the legal and the release work, and a rule over them would
+// redden most of those changes for a reason that has nothing to do with where
+// experiments live.
+var rootDirectories = map[string]bool{
+	".github":      true,
+	"cmd":          true,
+	"docs":         true,
+	ExperimentsDir: true,
+	"internal":     true,
+	FixturesDir:    true,
+}
 
 // The properties this package can refuse. A property is the rule, named once
 // here and named nowhere else, so a fixture declaring what it expects and a
@@ -81,6 +116,25 @@ const (
 	// that creates the directory, which is the only moment when writing the
 	// question is still cheap.
 	ExperimentHasNoRecord = "experiment-has-no-record"
+
+	// RecordOutsideThePlaceRecordsLive refuses a record that is not directly
+	// inside a directory under experiments/. Every other rule about a record
+	// reads one the walk of that directory found, so a record anywhere else
+	// is a record no rule applies to. The failure is ordinary rather than
+	// malicious: a directory copied aside before being deleted, or a second
+	// experiment nested inside the first while one question is being split
+	// into two. In each of those the run is green and the work is invisible
+	// to the only mechanism that would have asked for its question.
+	RecordOutsideThePlaceRecordsLive = "record-outside-the-place-records-live"
+
+	// RootHoldsADirectoryTheLayoutDoesNotName refuses a directory at the root
+	// of the tree that record 0002 does not name. That record fixes the
+	// layout and says a directory it does not name is refused rather than
+	// tolerated, and this is the half a machine can see. Adding a top-level
+	// directory is a change to the layout, so whoever adds one meets a
+	// refusal naming this check and the record behind it, which is the right
+	// order.
+	RootHoldsADirectoryTheLayoutDoesNotName = "root-holds-a-directory-the-layout-does-not-name"
 )
 
 // pathInProse matches a repository-relative path written anywhere in a
@@ -200,6 +254,30 @@ func Walk(root string) (Result, error) {
 		return res, fmt.Errorf("%s is not a directory", root)
 	}
 
+	rootRefusals, err := refuseRootDirectories(root)
+	if err != nil {
+		return res, err
+	}
+	res.Refusals = append(res.Refusals, rootRefusals...)
+
+	if err := walkExperiments(root, &res); err != nil {
+		return res, err
+	}
+
+	strayRefusals, err := refuseStrayRecords(root)
+	if err != nil {
+		return res, err
+	}
+	res.Refusals = append(res.Refusals, strayRefusals...)
+
+	return res, nil
+}
+
+// walkExperiments reads the one directory an experiment may live in and holds
+// every record it finds to the rules about a record. It is the walk the rest
+// of this package was built around; the two refusals either side of it in Walk
+// are about where a record is rather than about what one says.
+func walkExperiments(root string, res *Result) error {
 	dir := filepath.Join(root, ExperimentsDir)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -209,9 +287,9 @@ func Walk(root string) (Result, error) {
 		// and reporting that as zero would be the failure this package
 		// exists to avoid.
 		if os.IsNotExist(err) {
-			return res, nil
+			return nil
 		}
-		return res, fmt.Errorf("cannot read %s: %w", dir, err)
+		return fmt.Errorf("cannot read %s: %w", dir, err)
 	}
 	res.ExperimentsPresent = true
 
@@ -237,7 +315,7 @@ func Walk(root string) (Result, error) {
 				})
 				continue
 			}
-			return res, fmt.Errorf("cannot read %s: %w", record, err)
+			return fmt.Errorf("cannot read %s: %w", record, err)
 		}
 		if !recordInfo.Mode().Type().IsRegular() {
 			res.Refusals = append(res.Refusals, Refusal{
@@ -249,7 +327,7 @@ func Walk(root string) (Result, error) {
 		}
 		data, err := readRecord(record)
 		if err != nil {
-			return res, err
+			return err
 		}
 		res.Records++
 		res.Refusals = append(res.Refusals, refuseBytes(record, data)...)
@@ -257,7 +335,103 @@ func Walk(root string) (Result, error) {
 		res.Refusals = append(res.Refusals, refuseState(record, data)...)
 	}
 
-	return res, nil
+	return nil
+}
+
+// refuseRootDirectories holds the root of the tree to the set record 0002
+// names. It reads the root and nothing below it, because that is where the
+// record applies strictly and where a directory nobody decided on appears.
+//
+// WHAT IT CANNOT SAY. It reads a filesystem rather than what git tracks, so a
+// directory somebody keeps beside the tree without committing it is refused
+// exactly like one that was committed. That is the intended answer rather than
+// a defect: the refusal is about a directory nobody argued for, and whether it
+// reached a commit yet does not change that. The one exception is the
+// checkout's own machinery, which gitDir names and which is never part of the
+// tree the record describes.
+func refuseRootDirectories(root string) ([]Refusal, error) {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read %s: %w", root, err)
+	}
+
+	var refusals []Refusal
+	for _, entry := range entries {
+		if !entry.IsDir() || entry.Name() == gitDir || rootDirectories[entry.Name()] {
+			continue
+		}
+		refusals = append(refusals, Refusal{
+			Property: RootHoldsADirectoryTheLayoutDoesNotName,
+			Subject:  filepath.Join(root, entry.Name()),
+			Detail:   fmt.Sprintf("record 0002 names %s at the root and this is not one of them, so adding it is a change to that record", rootDirectoriesInWords()),
+		})
+	}
+	return refusals, nil
+}
+
+// rootDirectoriesInWords is the permitted set in one string, sorted, so that a
+// message naming it is derived from the set the check reads rather than from a
+// list somebody typed into a format string and has to keep true.
+func rootDirectoriesInWords() string {
+	names := make([]string, 0, len(rootDirectories))
+	for name := range rootDirectories {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return strings.Join(names, ", ")
+}
+
+// refuseStrayRecords finds every record in the tree that is not directly
+// inside a directory under experiments/. It is the boundary every other record
+// rule rests on: those read a record the walk of experiments/ found, so a
+// record the walk never reaches is one none of them applies to.
+//
+// TWO PLACES IT DOES NOT LOOK, both of them deliberate. It does not descend
+// into the checkout's own machinery, which holds no record anybody wrote. It
+// does not descend into the fixtures either, which record 0002 says are
+// fixtures and are not experiments: a fixture tree exists to be refused, and a
+// runner that refused this repository for carrying the trees that prove it
+// could not be run here at all. A record that is genuinely misplaced under
+// testdata/ is therefore not refused, and a green run does not say otherwise.
+func refuseStrayRecords(root string) ([]Refusal, error) {
+	var refusals []Refusal
+
+	// filepath.WalkDir does not follow symbolic links, so a link pointing out
+	// of the tree is reported as a link and never descended into.
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			if path != root && (entry.Name() == gitDir || entry.Name() == FixturesDir) {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if entry.Name() != RecordName {
+			return nil
+		}
+
+		relative, err := filepath.Rel(root, path)
+		if err != nil {
+			return fmt.Errorf("cannot place %s inside %s: %w", path, root, err)
+		}
+		segments := strings.Split(filepath.ToSlash(relative), "/")
+		if len(segments) == 3 && segments[0] == ExperimentsDir {
+			return nil
+		}
+		refusals = append(refusals, Refusal{
+			Property: RecordOutsideThePlaceRecordsLive,
+			Subject:  path,
+			Detail: fmt.Sprintf("a record lives at %s/<slug>/%s and this one is at %s, so no rule about a record reaches it",
+				ExperimentsDir, RecordName, filepath.ToSlash(relative)),
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("cannot walk %s: %w", root, err)
+	}
+	return refusals, nil
 }
 
 // refusePaths holds a record to the paths it names. A path that was removed
