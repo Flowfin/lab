@@ -2,6 +2,18 @@
 
 Every other board in this organisation carries a promise, which is right for them and makes them a bad place to try something that will probably fail. Without somewhere to fail, experiments either do not happen or they happen inside a board that then has to explain them. The rule that keeps this from becoming a graveyard is that every experiment states its question before it starts and its answer when it stops, and the answer may be no. An experiment with no written answer is not finished, it is abandoned, and the difference should be visible. Everything here is public from the first commit, which means a failed experiment is public too.
 
+To see what has been tried and how it ended, run this from a checkout:
+
+```
+go run ./cmd/lab list
+```
+
+It prints one line per experiment, oldest unanswered first, with how long each
+unanswered question has been waiting. The output is not reproduced here on
+purpose. A listing copied into a page is correct on the day it is copied and
+wrong on the next experiment, and it is wrong in the direction that matters,
+which is a record that exists in the tree and not in the page a visitor reads.
+
 Planning happens on the issue tracker first. Every decision that shapes
 the architecture is argued there with its reasons before the code
 that depends on it exists.
