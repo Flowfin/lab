@@ -6,9 +6,11 @@
 package check
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
+	"unicode/utf8"
 )
 
 // ExperimentsDir is the one directory an experiment may live in. Decision
@@ -20,6 +22,52 @@ const ExperimentsDir = "experiments"
 // RecordName is the file that holds an experiment's record. Decision record
 // 0002 fixes its location; its shape is decided separately.
 const RecordName = "EXPERIMENT.md"
+
+// The properties this package can refuse. A property is the rule, named once
+// here and named nowhere else, so a fixture declaring what it expects and a
+// refusal the runner produced are the same string or they are not equal.
+const (
+	// RecordBeginsWithAByteOrderMark refuses a record whose first bytes are
+	// a byte-order mark. An editor adds one on save, the diff shows nothing
+	// unusual, and the first header field then begins with bytes nobody
+	// typed and nobody can see. A header field the runner does not
+	// recognise is a field whose rule does not apply, and a rule an
+	// invisible byte disables is not a rule.
+	RecordBeginsWithAByteOrderMark = "record-begins-with-a-byte-order-mark"
+
+	// RecordIsNotText refuses a record that is not text at all: an invalid
+	// encoding sequence, or a null byte. Such a file was not written and
+	// read by somebody, it arrived another way, and refusing it here costs
+	// less than deciding what every later check does with a string the rest
+	// of the runner cannot print.
+	RecordIsNotText = "record-is-not-text"
+)
+
+// byteOrderMark is the UTF-8 encoding of U+FEFF.
+var byteOrderMark = []byte{0xEF, 0xBB, 0xBF}
+
+// A Refusal is one rule refusing one subject. The property is what a fixture
+// declares and what the harness compares as a set. The subject is what the
+// author has to go and look at, and it is carried separately from the detail
+// so that a message can never be written without it.
+type Refusal struct {
+	// Property is the rule that refused, one of the constants above.
+	Property string
+
+	// Subject is the path that was refused, as the walk reached it.
+	Subject string
+
+	// Detail says what about the subject was wrong, in the words the author
+	// needs to make the repair. Two records can trip one property for
+	// different reasons and the repairs are different.
+	Detail string
+}
+
+// String is what a reader sees. It leads with the subject, because somebody
+// reading a red run is looking for the file to open first.
+func (r Refusal) String() string {
+	return fmt.Sprintf("%s: %s (%s)", r.Subject, r.Detail, r.Property)
+}
 
 // Result is what one walk examined. The counts are reported whatever they
 // are, including zero, because zero found and zero examined are different
@@ -40,10 +88,25 @@ type Result struct {
 	// Records is the number of experiment records read.
 	Records int
 
-	// Refusals is what the walk refused. There is nothing to refuse yet, so
-	// it is always empty; the refusals arrive in their own changes and each
-	// one ships with a fixture that proves it bites.
-	Refusals []string
+	// Refusals is what the walk refused, in the order the walk reached
+	// them. Each one names its property and its subject.
+	Refusals []Refusal
+}
+
+// Properties returns the set of properties this result refused, which is what
+// a case declares and what the harness compares. A property refused twice is
+// one entry: a verdict is a set, so a fixture tripping one rule at two places
+// still refuses exactly that rule.
+func (r Result) Properties() []string {
+	seen := make(map[string]bool, len(r.Refusals))
+	var props []string
+	for _, refusal := range r.Refusals {
+		if !seen[refusal.Property] {
+			seen[refusal.Property] = true
+			props = append(props, refusal.Property)
+		}
+	}
+	return props
 }
 
 // Walk examines the tree rooted at root and returns what it found. The error
@@ -100,13 +163,50 @@ func Walk(root string) (Result, error) {
 		if !recordInfo.Mode().Type().IsRegular() {
 			continue
 		}
-		if _, err := readRecord(record); err != nil {
+		data, err := readRecord(record)
+		if err != nil {
 			return res, err
 		}
 		res.Records++
+		res.Refusals = append(res.Refusals, refuseBytes(record, data)...)
 	}
 
 	return res, nil
+}
+
+// refuseBytes holds a record to being the text every later check assumes it
+// is. It judges nothing about what the text says: that the bytes are text,
+// and that the header a later check reads is the header the author wrote, is
+// the whole of it.
+func refuseBytes(path string, data []byte) []Refusal {
+	var refusals []Refusal
+
+	if bytes.HasPrefix(data, byteOrderMark) {
+		refusals = append(refusals, Refusal{
+			Property: RecordBeginsWithAByteOrderMark,
+			Subject:  path,
+			Detail:   "the file begins with a byte-order mark, so the first header field starts with three bytes nobody typed",
+		})
+	}
+
+	if i := bytes.IndexByte(data, 0); i >= 0 {
+		refusals = append(refusals, Refusal{
+			Property: RecordIsNotText,
+			Subject:  path,
+			Detail:   fmt.Sprintf("a null byte at offset %d", i),
+		})
+	} else if !utf8.Valid(data) {
+		// Checked second and only when there is no null byte, so a file
+		// carrying both is named by the more specific of the two rather
+		// than by whichever the code happened to reach first.
+		refusals = append(refusals, Refusal{
+			Property: RecordIsNotText,
+			Subject:  path,
+			Detail:   "the bytes are not a valid encoding sequence",
+		})
+	}
+
+	return refusals
 }
 
 // readRecord opens a record and returns its bytes. Nothing reads the contents

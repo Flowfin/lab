@@ -25,7 +25,11 @@ func TestExitCodes(t *testing.T) {
 			ExperimentsPresent: true,
 			Directories:        1,
 			Records:            1,
-			Refusals:           []string{"a refusal"},
+			Refusals: []check.Refusal{{
+				Property: "a-property",
+				Subject:  "somewhere/experiments/one/EXPERIMENT.md",
+				Detail:   "what was wrong with it",
+			}},
 		}, nil
 	}
 	failing := func(string) (check.Result, error) {
@@ -126,7 +130,11 @@ func TestRefusalsAreNamedInTheOutput(t *testing.T) {
 		return check.Result{
 			Root:               "somewhere",
 			ExperimentsPresent: true,
-			Refusals:           []string{"the refusal a reader has to see"},
+			Refusals: []check.Refusal{{
+				Property: "a-property",
+				Subject:  "somewhere/experiments/one/EXPERIMENT.md",
+				Detail:   "what was wrong with it",
+			}},
 		}, nil
 	}
 
@@ -134,7 +142,7 @@ func TestRefusalsAreNamedInTheOutput(t *testing.T) {
 	if got := run([]string{"check", "."}, &out, &errOut, refusing); got != exitRefused {
 		t.Fatalf("exit code %d, want %d", got, exitRefused)
 	}
-	if !strings.Contains(out.String(), "the refusal a reader has to see") {
+	if !strings.Contains(out.String(), "somewhere/experiments/one/EXPERIMENT.md") {
 		t.Fatalf("the output does not name the refusal:\n%s", out.String())
 	}
 }
