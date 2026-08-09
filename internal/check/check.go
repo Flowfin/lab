@@ -53,6 +53,28 @@ const (
 	// that no longer exists.
 	RecordNamesAPathThatDoesNotResolve = "record-names-a-path-that-does-not-resolve"
 
+	// RecordStateIsNotOneOfTheThree refuses a record whose state is not one
+	// of the three record 0003 names, which includes a state that is
+	// misspelled, a state written with no value, and no state field at all.
+	// Every other rule about a record's state is conditional on the state,
+	// so a record with no readable state is a record none of them applies
+	// to, and a rule that a typo disables is not a rule.
+	RecordStateIsNotOneOfTheThree = "record-state-is-not-one-of-the-three"
+
+	// RecordClaimsAnAnswerItDoesNotCarry refuses a record in state
+	// answered whose answer section is empty. It does not make anybody
+	// answer. What it makes impossible is claiming to have answered while
+	// having written nothing, which turns a silent half-finished directory
+	// into either a real answer or an honest abandoned.
+	RecordClaimsAnAnswerItDoesNotCarry = "record-claims-an-answer-it-does-not-carry"
+
+	// AbandonedRecordDoesNotSayWhatStoppedTheWork refuses a record in state
+	// abandoned that says nothing about what stopped the work. Abandoning
+	// is allowed here and that is the point of the state existing, but
+	// abandoning without a sentence is the same silence this board is built
+	// to make visible.
+	AbandonedRecordDoesNotSayWhatStoppedTheWork = "abandoned-record-does-not-say-what-stopped-the-work"
+
 	// ExperimentHasNoRecord refuses a directory under experiments/ that
 	// carries no record a reader can open. It catches somebody dropping code
 	// in and meaning to write the record later, and it fires on the change
@@ -232,6 +254,7 @@ func Walk(root string) (Result, error) {
 		res.Records++
 		res.Refusals = append(res.Refusals, refuseBytes(record, data)...)
 		res.Refusals = append(res.Refusals, refusePaths(root, record, data)...)
+		res.Refusals = append(res.Refusals, refuseState(record, data)...)
 	}
 
 	return res, nil
@@ -260,6 +283,93 @@ func refusePaths(root, path string, data []byte) []Refusal {
 	}
 
 	return refusals
+}
+
+// refuseState holds a record to what its own state says about it. Record 0003
+// fixes the three states and what each one requires; this is the half of that
+// a machine can see.
+//
+// What it buys is smaller than it looks and the difference is worth keeping
+// straight. It does not make anybody finish an experiment or write an honest
+// answer. It makes a record that contradicts itself refusable, which converts
+// a silent half-finished directory into either a real answer or an honest
+// abandoned. A record saying "no, this does not work" and a record saying it
+// while its author knows otherwise are the same bytes, and review is the only
+// thing that catches the second.
+//
+// WHERE THIS DOES NOT REACH. A record whose bytes do not parse as a record is
+// not judged here at all. Nothing can read the state of something that has no
+// header, and inventing a state refusal for it would name the wrong repair:
+// whoever hits it has a file that is not a record rather than a record with a
+// bad state. So a record with no header passes every rule below, which is a
+// hole, and it is issue #16's rather than this one's. Read a green run
+// accordingly.
+func refuseState(path string, data []byte) []Refusal {
+	rec, err := ParseRecord(data)
+	if err != nil {
+		return nil
+	}
+
+	state, present := rec.Field(FieldState)
+	switch {
+	case !present:
+		return []Refusal{{
+			Property: RecordStateIsNotOneOfTheThree,
+			Subject:  path,
+			Detail:   fmt.Sprintf("it declares no %s field, so no rule about a state applies to it. record 0003 names %s", FieldState, statesInWords()),
+		}}
+	case state == "":
+		return []Refusal{{
+			Property: RecordStateIsNotOneOfTheThree,
+			Subject:  path,
+			Detail:   fmt.Sprintf("its %s field is there and empty, which is not one of %s", FieldState, statesInWords()),
+		}}
+	case state != StateAsking && state != StateAnswered && state != StateAbandoned:
+		return []Refusal{{
+			Property: RecordStateIsNotOneOfTheThree,
+			Subject:  path,
+			Detail:   fmt.Sprintf("its %s is %q, and record 0003 names %s", FieldState, state, statesInWords()),
+		}}
+	}
+
+	// The answer section carries both. For an answered record it is the
+	// answer; for an abandoned one it is the sentence saying what stopped
+	// the work, which record 0003 makes a lower bar than an answer on
+	// purpose. They are two properties rather than one because the repairs
+	// are different: an answered record with nothing under the heading is
+	// either finished or mislabelled, and an abandoned one is one sentence
+	// away from being honest.
+	answer, _ := rec.Section(SectionAnswer)
+	if strings.TrimSpace(answer) != "" {
+		return nil
+	}
+
+	switch state {
+	case StateAnswered:
+		return []Refusal{{
+			Property: RecordClaimsAnAnswerItDoesNotCarry,
+			Subject:  path,
+			Detail:   fmt.Sprintf("it says %s and its %s section is empty, so it claims an answer it does not carry", StateAnswered, SectionAnswer),
+		}}
+	case StateAbandoned:
+		return []Refusal{{
+			Property: AbandonedRecordDoesNotSayWhatStoppedTheWork,
+			Subject:  path,
+			Detail:   fmt.Sprintf("it says %s and its %s section is empty, so it does not say what stopped the work", StateAbandoned, SectionAnswer),
+		}}
+	}
+
+	// asking, with an empty answer section, is the ordinary state of an
+	// experiment that is running. Record 0008 asks for that heading to be
+	// there and empty from the day the record is created.
+	return nil
+}
+
+// statesInWords is the three states in one string, so that a message naming
+// them is derived from the constants rather than from a list somebody typed
+// into a format string and has to keep true.
+func statesInWords() string {
+	return strings.Join([]string{StateAsking, StateAnswered, StateAbandoned}, ", ")
 }
 
 // refuseBytes holds a record to being the text every later check assumes it
