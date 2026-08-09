@@ -14,11 +14,26 @@
 // The layout of a case:
 //
 //	testdata/cases/<name>/tree/               what the runner walks
-//	testdata/cases/<name>/expected            three lines, see readExpected
-//	testdata/cases/<name>/expected-refusals   one refusal per line, may be empty
+//	testdata/cases/<name>/expected            three lines, see readExpectation
+//	testdata/cases/<name>/expected-refusals   one property per line, may be empty
+//	testdata/cases/<name>/near-neighbour      the case that differs by the
+//	                                          smallest legal change, required
+//	                                          of a case that refuses
 //
 // This file decides that layout. Nothing restates it, so there is nothing to
 // drift against it.
+//
+// THE BOUND ON WHAT ANY OF THIS PROVES. Every comparison here is over which
+// properties were refused, and never over which line inside the runner refused
+// them. Two refusal sites producing one property are indistinguishable to
+// every leg, so an operator holding several of them can lose one and stay
+// green. That is the state of this tree rather than a hypothetical:
+// record-is-not-text is produced at two sites, one for a null byte and one for
+// an invalid sequence, and a fixture for either satisfies the standing
+// requirement for both. What catches the loss of one arm is a case existing
+// for that arm, which is a fixture somebody remembered and not something the
+// harness can require. Read this before quoting a green run as proof that a
+// refusal site is exercised.
 package check
 
 import (
