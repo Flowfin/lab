@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Flowfin/lab/internal/check"
 )
@@ -13,6 +14,18 @@ import (
 // that wants the ordinary behaviour passes this, so a case exercising a
 // contrived walk is visible as one at the call site.
 var realWalk = check.Walk
+
+// fixedNow is the value every test here supplies for the clock. It is a date
+// rather than whatever the machine says, so the waiting column a test asserts
+// is the same number next week.
+var fixedNow = time.Date(2026, 8, 9, 12, 0, 0, 0, time.UTC)
+
+// ordinary is the set of edges a test that is not contriving one of them
+// passes. The walk is named at the call site because several cases contrive
+// it; the listing and the clock are the real ones unless a case says otherwise.
+func ordinary(walk func(string) (check.Result, error)) edges {
+	return edges{walk: walk, list: check.List, now: fixedNow}
+}
 
 // TestExitCodes reaches every code this runner can return, and names the
 // record that decides what each one means. Decision record 0011 requires a
@@ -107,12 +120,39 @@ func TestExitCodes(t *testing.T) {
 			walk: realWalk,
 			want: exitCannot,
 		},
+		{
+			name: "a listing of a tree with experiments in it",
+			args: []string{"list", "../../testdata/listings/several-experiments/tree"},
+			walk: realWalk,
+			want: exitClean,
+		},
+		{
+			// The listing is a report and not a gate. This tree carries a
+			// record the checker refuses, and the listing still leaves with
+			// the clean code, because nothing here fails for what it found.
+			name: "a listing of a tree holding a record the checker refuses",
+			args: []string{"list", "../../testdata/cases/record-answered-with-no-answer/tree"},
+			walk: realWalk,
+			want: exitClean,
+		},
+		{
+			name: "a listing of a tree that is not there",
+			args: []string{"list", "no-such-directory"},
+			walk: realWalk,
+			want: exitCannot,
+		},
+		{
+			name: "more paths than list takes",
+			args: []string{"list", "one", "two"},
+			walk: realWalk,
+			want: exitCannot,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			var out, errOut bytes.Buffer
-			got := run(tc.args, &out, &errOut, tc.walk)
+			got := run(tc.args, &out, &errOut, ordinary(tc.walk))
 			if got != tc.want {
 				t.Fatalf("exit code %d, want %d\nstdout: %s\nstderr: %s",
 					got, tc.want, out.String(), errOut.String())
@@ -139,7 +179,7 @@ func TestRefusalsAreNamedInTheOutput(t *testing.T) {
 	}
 
 	var out, errOut bytes.Buffer
-	if got := run([]string{"check", "."}, &out, &errOut, refusing); got != exitRefused {
+	if got := run([]string{"check", "."}, &out, &errOut, ordinary(refusing)); got != exitRefused {
 		t.Fatalf("exit code %d, want %d", got, exitRefused)
 	}
 	if !strings.Contains(out.String(), "somewhere/experiments/one/EXPERIMENT.md") {
