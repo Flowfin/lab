@@ -99,10 +99,12 @@ jobs:
     # record 0012 chose the list from, and each entry below differs from the
     # baseline in at least one of them.
     #
-    # The label is not the platform. `macos-latest` is an arm64 image, which is
-    # the `darwin/arm64` entry; the names below are written from the record's
-    # vocabulary rather than from the runner label, because the record is what a
-    # reader is holding when they ask whether every entry is covered.
+    # The label is not the platform. The names below are written from the
+    # record's vocabulary rather than from the runner label, because the record
+    # is what a reader is holding when they ask whether every entry is covered,
+    # and which architecture a label carries is a property of an image rather
+    # than of this file. Nothing here claims that pairing: the first step of the
+    # job asks the toolchain and refuses the entry when the answer disagrees.
     #
     # Record 0012 leaves open whether a hosted runner is offered for each of
     # these and says the first workflow written against it settles that, since a
@@ -143,6 +145,25 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+
+      - name: Say which platform this entry ran on
+        # The entry names a platform and the image decides what it actually is,
+        # so this asks rather than assumes. An image that moves under its label
+        # reddens the entry that claimed it instead of quietly running the suite
+        # somewhere record 0012 already covers, which is the failure a sentence
+        # in a comment could not catch. It also prints the answer, so a reader
+        # asking which three platforms produced evidence reads it out of the run
+        # rather than out of this file.
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          reported="$(go env GOOS)/$(go env GOARCH)"
+          echo "${PLATFORM}: the toolchain here reports ${reported}"
+          if [ "$reported" != "$PLATFORM" ]; then
+            echo "::error::This entry is written as ${PLATFORM} and the toolchain reports ${reported}."
+            exit 1
+          fi
 
       - name: Run the default suite
         # The same suite on every entry. No platform gets a reduced set and no
