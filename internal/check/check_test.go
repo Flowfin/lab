@@ -41,6 +41,12 @@ func TestCases(t *testing.T) {
 			if got.ExperimentsPresent != want.experimentsPresent {
 				t.Errorf("experiments directory present is %v, case expects %v", got.ExperimentsPresent, want.experimentsPresent)
 			}
+			if got.DecisionsPresent != want.decisionsPresent {
+				t.Errorf("decisions directory present is %v, case expects %v", got.DecisionsPresent, want.decisionsPresent)
+			}
+			if got.Decisions != want.decisions {
+				t.Errorf("read %d decision records, case expects %d", got.Decisions, want.decisions)
+			}
 			for _, diff := range diffRefusalSets(want.refusals, got.Properties()) {
 				t.Error(diff)
 			}

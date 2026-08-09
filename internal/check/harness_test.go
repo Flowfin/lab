@@ -14,7 +14,7 @@
 // The layout of a case:
 //
 //	testdata/cases/<name>/tree/               what the runner walks
-//	testdata/cases/<name>/expected            three lines, see readExpectation
+//	testdata/cases/<name>/expected            four lines, see readExpectation
 //	testdata/cases/<name>/expected-refusals   one property per line, may be empty
 //	testdata/cases/<name>/near-neighbour      the case that differs by the
 //	                                          smallest legal change, required
@@ -56,6 +56,8 @@ type expectation struct {
 	directories        int
 	records            int
 	experimentsPresent bool
+	decisionsPresent   bool
+	decisions          int
 	refusals           []string
 }
 
@@ -117,13 +119,25 @@ func readExpectation(t *testing.T, dir string) expectation {
 			default:
 				t.Fatalf("case %s: experiments is %q, want present or absent", dir, value)
 			}
+		case "decisions":
+			// One key carrying both facts. A tree with no decisions
+			// directory and one whose directory is empty both read zero
+			// records, so a case saying zero would not separate them, and
+			// absent is how a case says which of the two it is.
+			if value == "absent" {
+				exp.decisionsPresent = false
+				exp.decisions = 0
+				break
+			}
+			exp.decisionsPresent = true
+			exp.decisions = mustAtoi(t, dir, value)
 		default:
 			t.Fatalf("case %s: unknown expectation %q", dir, key)
 		}
 	}
 	sort.Strings(seen)
-	if strings.Join(seen, ",") != "directories,experiments,records" {
-		t.Fatalf("case %s: expectation names %v, want all three of directories, experiments and records", dir, seen)
+	if strings.Join(seen, ",") != "decisions,directories,experiments,records" {
+		t.Fatalf("case %s: expectation names %v, want all four of directories, experiments, records and decisions", dir, seen)
 	}
 
 	refusals, err := os.ReadFile(filepath.Join(dir, "expected-refusals"))
