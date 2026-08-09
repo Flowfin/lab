@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -41,7 +43,53 @@ const (
 	// less than deciding what every later check does with a string the rest
 	// of the runner cannot print.
 	RecordIsNotText = "record-is-not-text"
+
+	// RecordNamesAPathThatDoesNotResolve refuses a record naming a path
+	// inside this repository that is not there at the commit being checked.
+	// A record pointing at a file which is not there has quietly stopped
+	// being true, and it happens most often exactly when it matters: an
+	// experiment is answered, its code is removed under the decision that
+	// allows that, and the record still says the measurement is in a script
+	// that no longer exists.
+	RecordNamesAPathThatDoesNotResolve = "record-names-a-path-that-does-not-resolve"
 )
+
+// pathInProse matches a repository-relative path written anywhere in a
+// record, in a sentence or inside a link, because the paths that rot are the
+// ones written in a sentence rather than in a link.
+//
+// The first segment has to be a directory record 0002 names. That is what
+// keeps the pattern from reading a URL, a fraction or a word pair as a path:
+// the leading segment of https://example.com/x is not one of these, and
+// neither is the and of and/or. It also means a path this repository could
+// never hold is not this check's business, which is the right boundary,
+// because nothing here can say whether a file on somebody else's machine
+// exists.
+var pathInProse = regexp.MustCompile(
+	`(^|[^A-Za-z0-9._/-])((?:\./)?(?:experiments|cmd|internal|docs|testdata|\.github)(?:/[A-Za-z0-9._-]+)+)`)
+
+// pathsNamedInProse returns the repository-relative paths a text names, in
+// the order it names them, each once.
+//
+// The leading group is what keeps a URL out. The path segments of
+// https://example.invalid/docs/thing.md end in something this pattern would
+// otherwise read as a path in this repository, and a record refused for a
+// document on somebody else's server is the annoyance that gets a check
+// switched off.
+func pathsNamedInProse(text string) []string {
+	var named []string
+	seen := make(map[string]bool)
+
+	for _, match := range pathInProse.FindAllStringSubmatch(text, -1) {
+		path := strings.TrimRight(match[2], ".,;:")
+		if path == "" || seen[path] {
+			continue
+		}
+		seen[path] = true
+		named = append(named, path)
+	}
+	return named
+}
 
 // byteOrderMark is the UTF-8 encoding of U+FEFF.
 var byteOrderMark = []byte{0xEF, 0xBB, 0xBF}
@@ -169,9 +217,35 @@ func Walk(root string) (Result, error) {
 		}
 		res.Records++
 		res.Refusals = append(res.Refusals, refuseBytes(record, data)...)
+		res.Refusals = append(res.Refusals, refusePaths(root, record, data)...)
 	}
 
 	return res, nil
+}
+
+// refusePaths holds a record to the paths it names. A path that was removed
+// on purpose is the case this exists to catch rather than an exception to it:
+// the repair is to update the record to name the commit that removed the file,
+// which the code-removal decision already requires, and not to weaken this.
+//
+// Name no path you do not intend to resolve. A record naming an example path
+// that was never meant to exist is refused, and that is expected rather than a
+// defect in the check.
+func refusePaths(root, path string, data []byte) []Refusal {
+	var refusals []Refusal
+
+	for _, named := range pathsNamedInProse(string(data)) {
+		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(named))); err == nil {
+			continue
+		}
+		refusals = append(refusals, Refusal{
+			Property: RecordNamesAPathThatDoesNotResolve,
+			Subject:  path,
+			Detail:   fmt.Sprintf("it names %s, which is not in this tree", named),
+		})
+	}
+
+	return refusals
 }
 
 // refuseBytes holds a record to being the text every later check assumes it

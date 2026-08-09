@@ -274,3 +274,39 @@ func fingerprint(t *testing.T, root string) map[string]string {
 	}
 	return sums
 }
+
+// TestWhatCountsAsAPathInProse holds the half that decides whether the path
+// refusal is useful or annoying. It has to read a path written in a sentence,
+// which is where paths rot, and it has to leave alone the things that look
+// like paths and are not.
+func TestWhatCountsAsAPathInProse(t *testing.T) {
+	tests := []struct {
+		text string
+		want []string
+	}{
+		{"the script in experiments/one/measure.sh produced it", []string{"experiments/one/measure.sh"}},
+		{"see [the layout](docs/decisions/0002-repository-layout.md)", []string{"docs/decisions/0002-repository-layout.md"}},
+		{"the walk is in `internal/check/check.go`", []string{"internal/check/check.go"}},
+		{"the workflow is .github/workflows/dco.yml", []string{".github/workflows/dco.yml"}},
+		{"relative, as ./docs/privacy.md", []string{"./docs/privacy.md"}},
+		{"published at https://example.invalid/docs/thing.md", nil},
+		{"either one and/or the other", nil},
+		{"two thirds, or 2/3 of them", nil},
+		{"a bare word, experiments, with no path after it", nil},
+		{"somebody else's tree at /usr/share/doc", nil},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.text, func(t *testing.T) {
+			got := pathsNamedInProse(tc.text)
+			if len(got) != len(tc.want) {
+				t.Fatalf("read %v as paths, want %v", got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Fatalf("read %v as paths, want %v", got, tc.want)
+				}
+			}
+		})
+	}
+}
