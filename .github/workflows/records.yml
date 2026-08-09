@@ -1,0 +1,76 @@
+# This repository's own records, checked on the way in.
+#
+# Run on demand the record checks are a linter somebody remembers, and the
+# records that most need checking are written by whoever was least likely to
+# remember. This runs them on every pull request.
+#
+# It is separate from the build and test workflow on purpose. The two answer
+# different questions: that one says the tool compiles and its tests pass, this
+# one says this repository's own records are in order, and a reader looking at a
+# red tick should know which of those broke without opening it.
+#
+# WHAT THIS GATE DOES NOT JUDGE. It never asks whether an experiment worked. An
+# experiment that answered no passes exactly like one that answered yes, because
+# a no is a finished piece of work here. What it judges is whether the record is
+# honest and complete. Anyone who ever feels this check pushing them towards a
+# more flattering answer should read that as a defect in the check.
+#
+# The check name below is what a required set refers to later, and a job renamed
+# in passing removes itself from that set while the tab still looks green. The
+# name is written here rather than left to the job id for that reason, and
+# changing it is a change to the gate rather than tidying.
+#
+# Hardened the way every other workflow in this tree is, because the audit job in
+# zizmor.yml refuses a new one that departs from it: permissions denied at the
+# top and granted per job, every action pinned to a commit with its version in a
+# comment, and checkout without persisted credentials.
+name: Records
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+# Explicit deny-all at workflow level; the job below grants only what it needs.
+permissions: {}
+
+# Cancel a superseded run on the same ref. Nothing here publishes, so a run that
+# has been overtaken is safe to drop.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  records:
+    name: records
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # The toolchain comes from go.mod, so the version this job uses moves
+          # when the module says so and never separately.
+          go-version-file: go.mod
+          # This module has no dependencies and therefore no go.sum for a cache
+          # key to be built from. Asking for a cache anyway makes the step
+          # depend on a file that is not there.
+          cache: false
+
+      - name: Check this repository's records
+        # Built from this commit rather than downloaded, so a change that breaks
+        # a refusal is caught by the pull request that made it instead of by the
+        # next release. The exit codes are the contract in
+        # docs/decisions/0011-the-exit-codes.md: 0 refused nothing, 1 refused
+        # something, 2 could not do the job. This step keys on all three by
+        # letting the runner's own code become the job's, which is what makes
+        # this job a reader of that record.
+        run: go run ./cmd/lab check .
