@@ -50,6 +50,18 @@ const usage = `lab reads this repository and reports what it examined.
 lab writes nothing to the tree it reads.
 `
 
+// THIS IS WHERE THE RUNNER READS THE TIME, and it is read once. Everything
+// downstream is given the value rather than asking again, so a run has one
+// notion of now instead of one per caller, and two parts of a single run cannot
+// disagree about which day it is.
+//
+// WHAT READING IT HERE DOES NOT BUY. Nothing makes the host clock right. A
+// machine set two years fast refuses honest records and a machine set two years
+// slow accepts a question dated next year as an ordinary one, and no reading of
+// a checkout separates either case from a correct one. What it buys is that the
+// value is one value, and that every run prints it, so a reader can see which
+// now a verdict was made against instead of assuming it was the day they are
+// reading on.
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, edges{
 		walk: check.Walk,
@@ -61,7 +73,7 @@ func main() {
 // edges is everything this command reaches for that is not its arguments: the
 // walk, the listing, and the clock.
 //
-// The walk is a parameter for one reason: the mapping from a walk that refused
+// The walk is a parameter for two reasons. The mapping from a walk that refused
 // something to the exit code a refusal returns had to be proved before the
 // first refusal existed, and no real walk could produce one then. The
 // alternative was landing that mapping untested and finding out on the day a
@@ -72,7 +84,7 @@ func main() {
 // does would assert nothing. Where the time is read is issue #63's, and this is
 // only the seam a test can set.
 type edges struct {
-	walk func(string) (check.Result, error)
+	walk func(string, time.Time) (check.Result, error)
 	list func(string, time.Time) (check.Listing, error)
 	now  time.Time
 }
@@ -100,7 +112,7 @@ func run(args []string, out, errOut io.Writer, e edges) int {
 			return exitCannot
 		}
 
-		result, err := e.walk(root)
+		result, err := e.walk(root, e.now)
 		if err != nil {
 			fmt.Fprintf(errOut, "lab check: %v\n", err)
 			return exitCannot

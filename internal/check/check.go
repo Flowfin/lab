@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
 
@@ -127,6 +128,14 @@ const (
 	// to the only mechanism that would have asked for its question.
 	RecordOutsideThePlaceRecordsLive = "record-outside-the-place-records-live"
 
+	// QuestionDatedLaterThanTheRun refuses a record whose question is dated
+	// after the time the run read. Sorted oldest first, such a record sits at
+	// the bottom of the listing and stays there, which is exactly the stalled
+	// experiment the listing exists to surface, concealed by the mechanism
+	// meant to reveal it. Every other rule stays green and the listing keeps
+	// printing, which is why this is the near miss worth a fixture.
+	QuestionDatedLaterThanTheRun = "question-dated-later-than-the-run"
+
 	// RootHoldsADirectoryTheLayoutDoesNotName refuses a directory at the root
 	// of the tree that record 0002 does not name. That record fixes the
 	// layout and says a directory it does not name is refused rather than
@@ -207,6 +216,11 @@ type Result struct {
 	// Root is the directory the walk started from, as it was given.
 	Root string
 
+	// Now is the time this run was given, and the only notion of now anything
+	// below has. It is reported so that a reader can see which value a run
+	// used rather than inferring it from when they think the run happened.
+	Now time.Time
+
 	// ExperimentsPresent says whether Root held an experiments directory at
 	// all. A tree with none is not an error and it is not the same as a tree
 	// whose experiments directory is empty, so the two are not collapsed
@@ -251,8 +265,8 @@ func (r Result) Properties() []string {
 // Walk examines the tree rooted at root and returns what it found. The error
 // it returns means the walk could not be made at all, which is a different
 // outcome from a walk that completed and refused something.
-func Walk(root string) (Result, error) {
-	res := Result{Root: root}
+func Walk(root string, now time.Time) (Result, error) {
+	res := Result{Root: root, Now: now}
 
 	info, err := os.Stat(root)
 	if err != nil {
@@ -358,6 +372,7 @@ func walkExperiments(root string, res *Result) error {
 		res.Refusals = append(res.Refusals, refuseBytes(record, data)...)
 		res.Refusals = append(res.Refusals, refusePaths(root, record, data)...)
 		res.Refusals = append(res.Refusals, refuseState(record, data)...)
+		res.Refusals = append(res.Refusals, refuseDates(record, data, res.Now)...)
 	}
 
 	return nil
@@ -634,6 +649,7 @@ func (r Result) Report() string {
 		out += fmt.Sprintf("no %s directory in this tree\n", DecisionsDir)
 	}
 	out += fmt.Sprintf("%d decision %s read\n", r.Decisions, plural(r.Decisions, "record", "records"))
+	out += fmt.Sprintf("the time this run read is %s\n", r.Now.UTC().Format(time.RFC3339))
 	out += fmt.Sprintf("%d refused\n", len(r.Refusals))
 	for _, refusal := range r.Refusals {
 		out += fmt.Sprintf("  %s\n", refusal)

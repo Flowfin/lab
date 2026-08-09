@@ -23,7 +23,7 @@ var fixedNow = time.Date(2026, 8, 9, 12, 0, 0, 0, time.UTC)
 // ordinary is the set of edges a test that is not contriving one of them
 // passes. The walk is named at the call site because several cases contrive
 // it; the listing and the clock are the real ones unless a case says otherwise.
-func ordinary(walk func(string) (check.Result, error)) edges {
+func ordinary(walk func(string, time.Time) (check.Result, error)) edges {
 	return edges{walk: walk, list: check.List, now: fixedNow}
 }
 
@@ -32,7 +32,7 @@ func ordinary(walk func(string) (check.Result, error)) edges {
 // test per code, so that a code existing only in the document is caught here
 // rather than by an operator.
 func TestExitCodes(t *testing.T) {
-	refusing := func(string) (check.Result, error) {
+	refusing := func(string, time.Time) (check.Result, error) {
 		return check.Result{
 			Root:               "somewhere",
 			ExperimentsPresent: true,
@@ -45,14 +45,14 @@ func TestExitCodes(t *testing.T) {
 			}},
 		}, nil
 	}
-	failing := func(string) (check.Result, error) {
+	failing := func(string, time.Time) (check.Result, error) {
 		return check.Result{}, errors.New("cannot read the tree")
 	}
 
 	tests := []struct {
 		name string
 		args []string
-		walk func(string) (check.Result, error)
+		walk func(string, time.Time) (check.Result, error)
 		want int
 	}{
 		{
@@ -166,7 +166,7 @@ func TestExitCodes(t *testing.T) {
 // was refused; a caller that wants to know what was refused reads the output,
 // and that only works if the output names it.
 func TestRefusalsAreNamedInTheOutput(t *testing.T) {
-	refusing := func(string) (check.Result, error) {
+	refusing := func(string, time.Time) (check.Result, error) {
 		return check.Result{
 			Root:               "somewhere",
 			ExperimentsPresent: true,

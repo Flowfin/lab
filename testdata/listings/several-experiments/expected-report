@@ -1,5 +1,6 @@
 examined ../../testdata/listings/several-experiments/tree
 6 experiments
+the time this run read is 2026-08-09T12:00:00Z
   slug              state       question written  waiting
   oldest-question   asking      2026-05-01        100 days
   newer-question    asking      2026-07-15        25 days

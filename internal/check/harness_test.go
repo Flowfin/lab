@@ -44,7 +44,14 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
+
+// fixedNow is the one notion of now every test here runs against. The runner
+// reads the time in exactly one place and everything downstream is given the
+// value, so the suite supplies a date rather than whatever the machine says and
+// an assertion about a date stays true next week.
+var fixedNow = time.Date(2026, 8, 9, 12, 0, 0, 0, time.UTC)
 
 // casesDir is where the cases live. Decision record 0002 puts the runner's
 // own fixtures at the root of the tree rather than beside the package, so the

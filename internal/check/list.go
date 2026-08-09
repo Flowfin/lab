@@ -57,6 +57,50 @@ func (e Entry) Waiting(now time.Time) (int, bool) {
 	return int(today.Sub(e.Written).Hours() / 24), true
 }
 
+// refuseDates holds a record to the one notion of now the run was given. It
+// reads the question's date and nothing else about time.
+//
+// WHAT THIS DOES NOT BUY, and it belongs here rather than only in the issue
+// that argued it. Nothing makes the host clock right. A machine set two years
+// fast refuses honest records and a machine set two years slow accepts a future
+// date as an ordinary one, and no reading of a checkout separates either case
+// from a correct one. What the rule buys is that the runner has one notion of
+// now instead of several, that a reader can see which value a run used because
+// every run prints it, and that the listing's ordering is a property of the
+// records rather than of when somebody happened to look.
+//
+// A record whose bytes do not parse is not judged here, for the same reason the
+// state rules do not judge one: nothing can read a date out of something that
+// has no header.
+func refuseDates(path string, data []byte, now time.Time) []Refusal {
+	record, err := ParseRecord(data)
+	if err != nil {
+		return nil
+	}
+
+	written, present := record.Field(FieldQuestionWritten)
+	if !present {
+		return nil
+	}
+	date, err := time.Parse(DateFormat, written)
+	if err != nil {
+		// A value that is not a date is a different repair and a different
+		// rule. Refusing it here would name the wrong one.
+		return nil
+	}
+
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	if !date.After(today) {
+		return nil
+	}
+	return []Refusal{{
+		Property: QuestionDatedLaterThanTheRun,
+		Subject:  path,
+		Detail: fmt.Sprintf("its %s is %s and this run read %s, so the listing sorts it below every honest question and leaves it there",
+			FieldQuestionWritten, written, today.Format(DateFormat)),
+	}}
+}
+
 // A Listing is what one listing walk found.
 type Listing struct {
 	// Root is the directory the walk started from, as it was given.
@@ -83,13 +127,13 @@ type Listing struct {
 // group by slug, because there is nothing to order it by and the alternative is
 // an order that changes between filesystems.
 //
-// WHERE THIS DOES NOT REACH TODAY. A question dated later than now sorts to the
-// bottom of the asking group and its waiting column counts down rather than up,
-// which is the stalled experiment this verb exists to surface, concealed by the
-// ordering meant to reveal it. Nothing here refuses such a date; issue #63 is
-// where that refusal and the one place the time is read are argued. The column
-// prints the negative count rather than hiding it, so the case is visible in
-// the meantime.
+// A question dated later than the time the run read would sort to the bottom of
+// the asking group and its waiting column would count down rather than up,
+// which is the stalled experiment this verb exists to surface concealed by the
+// ordering meant to reveal it. The listing does not repair that and does not
+// hide it: it prints the negative count, and refuseDates is what refuses the
+// record, so the case reaches a reader through the checker rather than through
+// a position in this list.
 func List(root string, now time.Time) (Listing, error) {
 	listing := Listing{Root: root}
 
@@ -188,6 +232,7 @@ func (l Listing) Report(now time.Time) string {
 		out += fmt.Sprintf("no %s directory in this tree\n", ExperimentsDir)
 	}
 	out += fmt.Sprintf("%d %s\n", len(l.Entries), plural(len(l.Entries), "experiment", "experiments"))
+	out += fmt.Sprintf("the time this run read is %s\n", now.UTC().Format(time.RFC3339))
 	if len(l.Entries) == 0 {
 		return out
 	}
