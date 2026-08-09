@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 // listingsDir holds the trees the listing is read against. They are separate
@@ -13,11 +12,13 @@ import (
 // the thing worth asserting about it is what it printed and in what order.
 const listingsDir = "../../testdata/listings"
 
-// listingNow is the day every assertion here is made from. The clock is a
-// parameter for exactly this reason: a test that computed the expected number
-// the same way the listing does would assert nothing, and one that hard-coded a
-// number against the real clock would be red tomorrow.
-var listingNow = time.Date(2026, 8, 9, 12, 0, 0, 0, time.UTC)
+// listingNow is the day every assertion here is made from. It is the same value
+// the rest of the suite walks with, because the runner has one notion of now and
+// a suite with two would prove nothing about that. The clock is a parameter for
+// exactly this reason: a test that computed the expected number the same way the
+// listing does would assert nothing, and one that hard-coded a number against
+// the real clock would be red tomorrow.
+var listingNow = fixedNow
 
 // TestTheListingSortsTheOldestUnansweredFirst is the ordering the verb exists
 // for. A record sitting in asking with a real question breaks no rule, so
@@ -58,8 +59,8 @@ func TestTheWaitingColumnIsCountedFromTheClockItWasGiven(t *testing.T) {
 		days    int
 		counted bool
 	}{
-		{slug: "oldest-question", days: 100, counted: true},
-		{slug: "newer-question", days: 25, counted: true},
+		{slug: "oldest-question", days: 137, counted: true},
+		{slug: "newer-question", days: 62, counted: true},
 		// Nothing is waiting once it has stopped, whichever way it stopped.
 		{slug: "already-answered", counted: false},
 		{slug: "given-up", counted: false},
