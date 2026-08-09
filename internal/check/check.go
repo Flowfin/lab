@@ -219,6 +219,14 @@ type Result struct {
 	// Records is the number of experiment records read.
 	Records int
 
+	// DecisionsPresent says whether Root held a decisions directory at all.
+	// Absent and empty are different statements about a tree, and only one of
+	// them says the records were read and there were none.
+	DecisionsPresent bool
+
+	// Decisions is the number of decision records read.
+	Decisions int
+
 	// Refusals is what the walk refused, in the order the walk reached
 	// them. Each one names its property and its subject.
 	Refusals []Refusal
@@ -270,7 +278,24 @@ func Walk(root string) (Result, error) {
 	}
 	res.Refusals = append(res.Refusals, strayRefusals...)
 
+	decisions, decisionRefusals, err := refuseDecisions(root)
+	if err != nil {
+		return res, err
+	}
+	res.DecisionsPresent = decisionsPresent(root)
+	res.Decisions = decisions
+	res.Refusals = append(res.Refusals, decisionRefusals...)
+
 	return res, nil
+}
+
+// decisionsPresent says whether the tree holds a decisions directory at all.
+// It is asked separately from the count because a tree with none and a tree
+// whose directory is empty both read zero records, and collapsing the two into
+// that zero is the failure this package exists to avoid.
+func decisionsPresent(root string) bool {
+	info, err := os.Stat(filepath.Join(root, filepath.FromSlash(DecisionsDir)))
+	return err == nil && info.IsDir()
 }
 
 // walkExperiments reads the one directory an experiment may live in and holds
@@ -605,6 +630,10 @@ func (r Result) Report() string {
 	out += fmt.Sprintf("%d experiment %s walked, %d %s read\n",
 		r.Directories, plural(r.Directories, "directory", "directories"),
 		r.Records, plural(r.Records, "record", "records"))
+	if !r.DecisionsPresent {
+		out += fmt.Sprintf("no %s directory in this tree\n", DecisionsDir)
+	}
+	out += fmt.Sprintf("%d decision %s read\n", r.Decisions, plural(r.Decisions, "record", "records"))
 	out += fmt.Sprintf("%d refused\n", len(r.Refusals))
 	for _, refusal := range r.Refusals {
 		out += fmt.Sprintf("  %s\n", refusal)
