@@ -1,0 +1,168 @@
+# Build and test the runner.
+#
+# The check names below are the thing to be careful with. They are what the
+# required set on the default branch refers to later, and a job renamed in
+# passing removes itself from that set while the tab still looks green. Every
+# job here carries an explicit `name:`, so the reported name comes from this
+# file rather than from whatever the job id happens to be, and changing one is a
+# change to the gate rather than tidying.
+#
+# The platforms come from docs/decisions/0012-the-supported-platforms.md and
+# from nowhere else. That record names six entries for the build and three for
+# the suite; this workflow holds the build half of it. The suite runs on one
+# platform here, and issue #57 is where it grows to the three the record names.
+#
+# Hardened the way every other workflow in this tree is, because the audit job
+# in zizmor.yml refuses a new one that departs from it: permissions are denied
+# at the top and granted per job, every action is pinned to a commit with its
+# version in a comment, and checkout does not persist credentials.
+name: Build and test
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+# Explicit deny-all at workflow level; each job grants only what it needs.
+permissions: {}
+
+# Cancel a superseded run on the same ref. Nothing here publishes, so a run that
+# has been overtaken is safe to drop.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # One entry per platform the release targets. Cross-compiled from one runner
+    # rather than one runner per platform: what this job answers is whether the
+    # source compiles for that target, and the compiler answers that from
+    # anywhere. Whether a hosted runner exists for each label is the question
+    # record 0012 leaves to the first workflow written against it, and the suite
+    # is where it gets settled, not here.
+    name: build (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    strategy:
+      # Every entry runs. Stopping the matrix at the first failure would report
+      # one broken platform and leave the others unexamined, which reads as
+      # though only one is broken.
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # The toolchain comes from go.mod, so the version this job uses moves
+          # when the module says so and never separately.
+          go-version-file: go.mod
+          # This module has no dependencies and therefore no go.sum for a cache
+          # key to be built from. Asking for a cache anyway makes the step
+          # depend on a file that is not there.
+          cache: false
+
+      - name: Build for ${{ matrix.goos }}/${{ matrix.goarch }}
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: go build ./...
+
+  test:
+    # Named for the platform it runs on rather than `test`, because issue #57
+    # adds the other two entries record 0012 names and a bare `test` would have
+    # to be renamed to make room for them. A rename is a change to the gate, so
+    # the name that survives that change is the one to write now.
+    name: test (linux/amd64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Run the default suite
+        run: go test ./...
+
+  vet:
+    name: vet
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Vet the runner
+        run: go vet ./...
+
+  format:
+    name: format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Check formatting
+        # gofmt -l prints the files it would change and exits zero either way,
+        # so the job has to read the output to fail. Printing the names first
+        # means a red run says which files rather than only that some file was
+        # wrong.
+        run: |
+          set -euo pipefail
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            echo "::error::These files are not gofmt-formatted. Run 'gofmt -w .'."
+            exit 1
+          fi
+          echo "Every Go file in this tree is gofmt-formatted."
