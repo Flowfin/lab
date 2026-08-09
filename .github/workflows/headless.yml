@@ -1,0 +1,111 @@
+# The default suite, run where a display and elevation are both absent.
+#
+# Record 0007 makes both halves a birth requirement rather than a milestone, and
+# a requirement written in a document is an explanation of a requirement. This
+# is the job that refuses the violation, so a change introducing a display
+# dependency fails on the pull request that introduced it rather than on
+# somebody's laptop months later.
+#
+# The environment has to actually lack a display rather than merely not use one.
+# A job that happens to have no display today and gains one when the image
+# changes silently stops testing anything, so the variables a graphical toolkit
+# would look at are cleared at the job and the first step refuses the run if any
+# of them arrives carrying a value.
+#
+# WHAT THIS JOB CANNOT REMOVE. The unelevated half is checked and not
+# manufactured. The step below refuses a run whose user is root, and the suite is
+# never invoked through sudo, but the hosted image offers passwordless sudo to
+# the ordinary user it runs as and no job can take that away from itself. So what
+# is proved here is that the suite completed as an unprivileged user without
+# asking for elevation, and not that elevation was unavailable to ask for. Record
+# 0007 also says plainly that neither half is a security property, and a green
+# tick here is evidence about where the suite can run rather than about what the
+# code may do.
+#
+# It is a separate workflow from the build so that a reader looking at a red tick
+# knows which question broke. Nothing here makes it required on the default
+# branch: issue #26 assembles the required set from the names a completed run
+# reported, and putting the same setting in two places leaves the one nobody
+# edits as the one a reader believes.
+#
+# Hardened the way every other workflow in this tree is, because the audit job in
+# zizmor.yml refuses a new one that departs from it.
+name: Headless
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+# Explicit deny-all at workflow level; the job below grants only what it needs.
+permissions: {}
+
+# Cancel a superseded run on the same ref. Nothing here publishes, so a run that
+# has been overtaken is safe to drop.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  headless:
+    # The name is what a required set refers to later, and a job renamed in
+    # passing removes itself from that set while the tab still looks green.
+    name: headless and unelevated
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      # Cleared at the job rather than left to the image. An empty value is what
+      # a graphical toolkit reads as no display, and the step below refuses the
+      # run if any of them arrives with something in it anyway.
+      DISPLAY: ""
+      WAYLAND_DISPLAY: ""
+      XDG_SESSION_TYPE: ""
+      XDG_RUNTIME_DIR: ""
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Say what this environment is, and refuse it if it is not the one
+        run: |
+          set -euo pipefail
+          echo "running as $(id -un), uid $(id -u)"
+          if [ "$(id -u)" -eq 0 ]; then
+            echo "::error::This job is running as root, so it proves nothing about a suite that has to complete as an ordinary user."
+            exit 1
+          fi
+          for name in DISPLAY WAYLAND_DISPLAY XDG_SESSION_TYPE XDG_RUNTIME_DIR; do
+            value="$(printenv "$name" || true)"
+            if [ -n "$value" ]; then
+              echo "::error::$name carries a value here, so this job no longer has no graphical session."
+              exit 1
+            fi
+            echo "$name carries nothing"
+          done
+
+      - name: Run the default suite
+        # The same default run, with no opt-in and no reduced set. The count is
+        # what separates a suite that ran everything and passed from one that
+        # executed nothing and reported success, which look identical from
+        # outside. Top-level results are counted: a subtest's line is indented,
+        # so the anchored pattern does not read it twice.
+        run: |
+          set -euo pipefail
+          go test -count=1 -v ./... 2>&1 | tee suite.log
+          executed=$(grep -cE '^--- (PASS|FAIL): ' suite.log || true)
+          skipped=$(grep -cE '^--- SKIP: ' suite.log || true)
+          echo "with no display and no elevation: executed ${executed} test(s), skipped ${skipped}"
+          if [ "$executed" -eq 0 ]; then
+            echo "::error::The suite reported success having executed no tests."
+            exit 1
+          fi
