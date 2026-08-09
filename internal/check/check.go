@@ -317,6 +317,7 @@ func decisionsPresent(root string) bool {
 // of this package was built around; the two refusals either side of it in Walk
 // are about where a record is rather than about what one says.
 func walkExperiments(root string, res *Result) error {
+	var experiments []experiment
 	dir := filepath.Join(root, ExperimentsDir)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -344,6 +345,7 @@ func walkExperiments(root string, res *Result) error {
 
 		experiment := filepath.Join(dir, entry.Name())
 		record := filepath.Join(experiment, RecordName)
+		seen := experimentAt(experiment, record, entry.Name())
 		recordInfo, err := os.Stat(record)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -352,6 +354,7 @@ func walkExperiments(root string, res *Result) error {
 					Subject:  experiment,
 					Detail:   fmt.Sprintf("there is no %s in it, so it states no question", RecordName),
 				})
+				experiments = append(experiments, seen)
 				continue
 			}
 			return fmt.Errorf("cannot read %s: %w", record, err)
@@ -362,6 +365,7 @@ func walkExperiments(root string, res *Result) error {
 				Subject:  experiment,
 				Detail:   fmt.Sprintf("its %s is not a file a reader can open", RecordName),
 			})
+			experiments = append(experiments, seen)
 			continue
 		}
 		data, err := readRecord(record)
@@ -373,9 +377,21 @@ func walkExperiments(root string, res *Result) error {
 		res.Refusals = append(res.Refusals, refusePaths(root, record, data)...)
 		res.Refusals = append(res.Refusals, refuseState(record, data)...)
 		res.Refusals = append(res.Refusals, refuseDates(record, data, res.Now)...)
+		if parsed, err := ParseRecord(data); err == nil {
+			seen.slug, seen.declaresSlug = parsed.Field(FieldSlug)
+		}
+		experiments = append(experiments, seen)
 	}
 
+	res.Refusals = append(res.Refusals, refuseSlugs(experiments)...)
 	return nil
+}
+
+// experimentAt is what the walk knows about one directory before it has read
+// the record in it, which is everything the slug rules need from a directory
+// that carries no readable record at all.
+func experimentAt(path, record, directory string) experiment {
+	return experiment{path: path, record: record, directory: directory}
 }
 
 // refuseRootDirectories holds the root of the tree to the set record 0002

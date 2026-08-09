@@ -1,5 +1,8 @@
 # 0008. What an experiment record looks like
 
+Superseded by 0014, which fixes what a slug may be. Everything below stands as
+it was written.
+
 ## What was decided
 
 Record `0003` says what an experiment record has to mean. This record says what
