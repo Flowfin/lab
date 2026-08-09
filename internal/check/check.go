@@ -52,6 +52,13 @@ const (
 	// allows that, and the record still says the measurement is in a script
 	// that no longer exists.
 	RecordNamesAPathThatDoesNotResolve = "record-names-a-path-that-does-not-resolve"
+
+	// ExperimentHasNoRecord refuses a directory under experiments/ that
+	// carries no record a reader can open. It catches somebody dropping code
+	// in and meaning to write the record later, and it fires on the change
+	// that creates the directory, which is the only moment when writing the
+	// question is still cheap.
+	ExperimentHasNoRecord = "experiment-has-no-record"
 )
 
 // pathInProse matches a repository-relative path written anywhere in a
@@ -196,19 +203,26 @@ func Walk(root string) (Result, error) {
 		}
 		res.Directories++
 
-		record := filepath.Join(dir, entry.Name(), RecordName)
+		experiment := filepath.Join(dir, entry.Name())
+		record := filepath.Join(experiment, RecordName)
 		recordInfo, err := os.Stat(record)
 		if err != nil {
 			if os.IsNotExist(err) {
-				// An experiment with no record is a thing this repository
-				// intends to refuse, and the refusal is built in its own
-				// change with the fixture that proves it. Counting it as a
-				// record that was not read is all this walk does today.
+				res.Refusals = append(res.Refusals, Refusal{
+					Property: ExperimentHasNoRecord,
+					Subject:  experiment,
+					Detail:   fmt.Sprintf("there is no %s in it, so it states no question", RecordName),
+				})
 				continue
 			}
 			return res, fmt.Errorf("cannot read %s: %w", record, err)
 		}
 		if !recordInfo.Mode().Type().IsRegular() {
+			res.Refusals = append(res.Refusals, Refusal{
+				Property: ExperimentHasNoRecord,
+				Subject:  experiment,
+				Detail:   fmt.Sprintf("its %s is not a file a reader can open", RecordName),
+			})
 			continue
 		}
 		data, err := readRecord(record)
