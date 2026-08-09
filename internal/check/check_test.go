@@ -1,6 +1,7 @@
 package check
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"io/fs"
@@ -8,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 // TestCases runs every case under testdata/cases and compares what the walk
@@ -39,7 +41,7 @@ func TestCases(t *testing.T) {
 			if got.ExperimentsPresent != want.experimentsPresent {
 				t.Errorf("experiments directory present is %v, case expects %v", got.ExperimentsPresent, want.experimentsPresent)
 			}
-			for _, diff := range diffRefusalSets(want.refusals, got.Refusals) {
+			for _, diff := range diffRefusalSets(want.refusals, got.Properties()) {
 				t.Error(diff)
 			}
 		})
@@ -47,9 +49,9 @@ func TestCases(t *testing.T) {
 }
 
 // TestRefusalSetsAreComparedAsSets proves the comparison the harness rests on
-// bites, and bites for the reason it names. Every case in the tree today
-// expects no refusals, so nothing else in this suite could tell a working
-// comparison from one that always agrees.
+// bites, and bites for the reason it names. The cases exercise it over the
+// refusals that exist; this exercises it over the combinations they do not
+// reach, including a fixture that trips its own refusal and one other.
 func TestRefusalSetsAreComparedAsSets(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -127,8 +129,8 @@ func TestEveryCaseIsRunByTestCases(t *testing.T) {
 	}
 }
 
-// TestFixtureBytesSurviveTheCheckout reads the fixture that exists to carry a
-// carriage return and fails if the carriage return is gone.
+// TestFixtureBytesSurviveTheCheckout reads every fixture that exists to carry
+// a particular byte and fails if that byte is gone.
 //
 // The bytes reaching the runner have to be exact. This repository's
 // .gitattributes stores every tracked text file with LF, which would delete
@@ -141,14 +143,74 @@ func TestEveryCaseIsRunByTestCases(t *testing.T) {
 // red when the fixture is next written through a checkout that translates,
 // not on the commit that removes the rule.
 func TestFixtureBytesSurviveTheCheckout(t *testing.T) {
-	const fixture = casesDir + "/record-with-carriage-returns/tree/experiments/one/EXPERIMENT.md"
-
-	data, err := os.ReadFile(fixture)
-	if err != nil {
-		t.Fatalf("cannot read %s: %v", fixture, err)
+	tests := []struct {
+		fixture string
+		holds   string
+		check   func([]byte) bool
+	}{
+		{
+			fixture: "record-with-carriage-returns",
+			holds:   "a carriage return",
+			check:   func(b []byte) bool { return bytes.Contains(b, []byte("\r\n")) },
+		},
+		{
+			fixture: "record-with-a-byte-order-mark",
+			holds:   "a byte-order mark",
+			check:   func(b []byte) bool { return bytes.HasPrefix(b, byteOrderMark) },
+		},
+		{
+			fixture: "record-with-an-invalid-sequence",
+			holds:   "an invalid encoding sequence",
+			check:   func(b []byte) bool { return !utf8.Valid(b) },
+		},
+		{
+			fixture: "record-with-a-null-byte",
+			holds:   "a null byte",
+			check:   func(b []byte) bool { return bytes.IndexByte(b, 0) >= 0 },
+		},
 	}
-	if !strings.Contains(string(data), "\r\n") {
-		t.Fatalf("%s carries no carriage return: the bytes were translated on the way into this checkout", fixture)
+
+	for _, tc := range tests {
+		t.Run(tc.fixture, func(t *testing.T) {
+			path := filepath.Join(casesDir, tc.fixture, "tree", "experiments", "one", RecordName)
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("cannot read %s: %v", path, err)
+			}
+			if !tc.check(data) {
+				t.Fatalf("%s no longer carries %s: the bytes were translated on the way into this checkout, and the fixture now proves nothing", path, tc.holds)
+			}
+		})
+	}
+}
+
+// TestARefusalNamesItsSubject holds the half a property identifier cannot
+// carry. A guard that fails without saying what failed sends the reader to
+// the source, and the reader is usually somebody who has just arrived.
+func TestARefusalNamesItsSubject(t *testing.T) {
+	for name := range loadCases(t) {
+		result, err := Walk(filepath.Join(casesDir, name, "tree"))
+		if err != nil {
+			t.Fatalf("walk of %s failed: %v", name, err)
+		}
+		for _, refusal := range result.Refusals {
+			if refusal.Subject == "" {
+				t.Errorf("case %s: a %s refusal names no subject", name, refusal.Property)
+				continue
+			}
+			if _, err := os.Stat(refusal.Subject); err != nil {
+				t.Errorf("case %s: a %s refusal names %s, which cannot be opened: %v",
+					name, refusal.Property, refusal.Subject, err)
+			}
+			if refusal.Detail == "" {
+				t.Errorf("case %s: a %s refusal on %s says nothing about what was wrong",
+					name, refusal.Property, refusal.Subject)
+			}
+			if !strings.Contains(refusal.String(), refusal.Subject) {
+				t.Errorf("case %s: the message for a %s refusal does not name %s",
+					name, refusal.Property, refusal.Subject)
+			}
+		}
 	}
 }
 
