@@ -1,0 +1,79 @@
+# Static analysis of the runner's own source.
+#
+# Until this landed the only thing standing between a defect in the runner and
+# the default branch was a reader. The gate this board is measured against runs
+# static analysis on every pull request and surfaces what it finds in the
+# code-scanning tab, and this is that half.
+#
+# Go only. That is what the runner is written in, and record 0001 is where that
+# was decided. The workflow files are the other executable thing in this tree and
+# they are analysed by zizmor.yml rather than here, so the two tools do not both
+# claim the same subject and leave a reader guessing which verdict is which.
+#
+# The schedule is not decoration. A query published after the last pull request
+# reaches this repository on the next scheduled run rather than waiting for
+# somebody to open one, and on a board where weeks can pass between changes that
+# is the difference between a finding arriving and a finding not arriving.
+#
+# The job name is what a required set refers to later, and a job renamed in
+# passing removes itself from that set while the tab still looks green.
+#
+# Hardened the way every other workflow in this tree is, because the audit job in
+# zizmor.yml refuses a new one that departs from it: permissions denied at the
+# top and granted per job, every action pinned to a commit with its version in a
+# comment, and checkout without persisted credentials. The one write scope here
+# is security-events, which is what uploading the results needs and nothing more.
+name: CodeQL
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+  schedule:
+    # Weekly, at a minute nobody else picked, so a newly published query reaches
+    # this repository without waiting for a pull request.
+    - cron: "41 5 * * 2"
+
+# Explicit deny-all at workflow level; the job below grants only what it needs.
+permissions: {}
+
+# Cancel a superseded run on the same ref. This is an analysis job, not a
+# publish, so dropping a run that has been overtaken is safe.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyse:
+    name: CodeQL (go)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      security-events: write # upload the results into the code-scanning tab
+      contents: read # checkout the source to analyse
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # The toolchain comes from go.mod, so the analysis builds with the
+          # same compiler the suite does rather than with whatever the image
+          # happens to carry.
+          go-version-file: go.mod
+          cache: false
+
+      - name: Initialise CodeQL
+        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4
+        with:
+          languages: go
+          build-mode: autobuild
+
+      - name: Analyse
+        uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4
+        with:
+          category: "/language:go"
