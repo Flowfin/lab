@@ -94,6 +94,109 @@ gh api repos/Flowfin/lab/commits/$(git rev-parse origin/main)/check-runs \
 That is the command issue #26 assembles the required set from, and it is the
 one to run before quoting any context name back at this document.
 
+## The rest of the ruleset
+
+A required set is one rule out of the four that stand behind a merge at the
+target. The rest decides who may push, what a merge does to the commits it
+lands, and whether anybody has to read a change, and none of that is visible in
+a table of contexts. The table above walks the required set and stops there, so
+this is the other half of the same walk.
+
+Print both rather than trusting what follows:
+
+```
+gh api repos/Flowfin/lab/rules/branches/main --jq '.[].type'
+gh api repos/Flowfin/jellyfin-plugin-sso/rules/branches/main --jq '.[].type'
+gh api repos/Flowfin/lab/rules/branches/main \
+  --jq '.[] | select(.type=="pull_request") | .parameters'
+```
+
+### The rule types
+
+On 2026-08-10 the first two commands printed three types here and four at the
+target.
+
+| Rule type | Here | Target | Verdict |
+| --- | --- | --- | --- |
+| `deletion` | Present | Present | Kept. The branch this board's history lives on cannot be deleted on either side. |
+| `non_fast_forward` | Present | Present | Kept, and it carries more weight here than a row suggests. It is the only thing refusing a rewrite of the default branch, and no check in this tree can see one: the runner reads a checkout, so a history replaced under it reads as the tree it was given. |
+| `pull_request` | Present | Present | Kept. Its parameters are the table below. |
+| `required_status_checks` | Absent | Present | The deviation the gap section above is already about, and the largest one in either walk. Issue #26 assembles the set. |
+
+Enforcement and the bypass list are properties of the ruleset rather than rule
+types, so neither command above prints them. Both boards answer the same way,
+and this is the answer for this one:
+
+```
+gh api "repos/Flowfin/lab/rulesets/$(gh api repos/Flowfin/lab/rulesets \
+  --jq '.[] | select(.name=="gate") | .id')" \
+  --jq '{enforcement, bypass: .bypass_actors}'
+{"bypass":[],"enforcement":"active"}
+```
+
+An empty bypass list is what makes the three rules above mean anything, because
+an actor on that list is an actor none of them applies to. Issue #26 already
+requires it to stay empty, so nothing here adds a second rule about it.
+
+### The pull-request rule, parameter by parameter
+
+Every parameter the third command prints, with the target's value beside it. On
+2026-08-10 all but the first held the same value on both boards. A setting left
+at its default and a setting chosen deliberately look identical afterwards,
+which is why every row carries a reason and not only a verdict.
+
+| Parameter | Here | Target | Verdict |
+| --- | --- | --- | --- |
+| `allowed_merge_methods` | `["merge","squash","rebase"]` | `["merge"]` | Change owed. This is the one deviation in this walk worth closing rather than reasoning away, and the reason is below. |
+| `required_approving_review_count` | `0` | `0` | Kept. A count above zero on a board with one maintainer refuses every merge, and a rule nobody can satisfy is switched off in a hurry rather than met. |
+| `dismiss_stale_reviews_on_push` | `false` | `false` | Kept. It only bites where a review is required, and none is required at a count of zero. |
+| `require_last_push_approval` | `false` | `false` | Kept, for the reason in the row above. |
+| `required_review_thread_resolution` | `false` | `false` | Kept, for the reason two rows above. |
+| `require_code_owner_review` | `false` | `false` | Kept. There is no `CODEOWNERS` file in this tree, so requiring a code-owner review here would require an approval nothing can name. |
+| `dismissal_restriction` | `{"allowed_actors":[],"enabled":false}` | The same | Kept. It restricts who may dismiss a review, and there is no required review to dismiss. |
+| `required_reviewers` | `[]` | `[]` | Kept, for the reason in the row above. |
+
+### Why the merge methods are not a style preference
+
+`docs/decisions/0004-what-happens-to-the-code.md` lets an answered experiment's
+code be removed and requires the record to gain one line naming the commit that
+removed it, carrying the full hash. That line is written in the same change as
+the removal, so it names a commit that a squash replaces with a different one
+and that a rebase rewrites. The record then points at nothing on the default
+branch while still reading as complete, which is worse than a record that is
+obviously wrong, because nothing about it looks unfinished.
+
+`docs/decisions/0005-how-a-result-leaves.md` has the same shape one step further
+out. A promotion names a commit range in this repository, and a range whose ends
+were rewritten by the merge that landed them is a pointer the receiving board
+cannot follow.
+
+Restricting the methods to `["merge"]` is what keeps a named commit resolvable.
+The restriction is not in place. The third command above still prints all three
+methods on this board, so a squash or a rebase merge here can break a record of
+either kind, and the only thing standing against it today is whoever picks the
+button. Issue #55 holds the change.
+
+### The rule neither board carries
+
+A verified signature on every commit is required by neither ruleset. This walk
+does not add it and does not argue against it. Whether to require one is a
+question about key custody rather than an engineering judgement, and it is an
+entry on issue #46, which is open. The walk points there rather than deciding
+it, and parity settles nothing in either direction, because the target does not
+require one either.
+
+### What this walk cannot do
+
+It reads the API as it answered on one day. A rule or a parameter changed by
+hand afterwards is not caught here, and the tables go wrong quietly rather than
+loudly, which is the failure a document describing a live setting always has.
+Re-run the commands before quoting any row back.
+
+It also says nothing about whether a change was read. A ruleset carrying every
+rule walked above still lands a change nobody looked at, because the approving
+review count is zero and that is a deliberate row rather than an oversight.
+
 ## What this document is not
 
 It is not a claim that this board is as safe as the target. It records which of
