@@ -35,6 +35,31 @@ const RecordName = "EXPERIMENT.md"
 // could run here.
 const FixturesDir = "testdata"
 
+// THE TREE THIS RUNNER WALKS IS ITS INPUT RATHER THAN ITS ENVIRONMENT.
+// Everything under experiments/ is written by whoever proposes an experiment,
+// and the two bounds below are what keep a badly built tree from deciding how
+// much the runner reads. The numbers are here, where the checks that read them
+// are, and both are chosen so that no honest tree comes near either.
+//
+// THIS IS NOT A SANDBOX AND THE BOUNDS DO NOT MAKE ONE. The runner runs with
+// the privileges of whoever started it and reads what it is pointed at. What
+// these buy is that a record cannot make a green run out of a file outside this
+// repository and cannot make the runner read an unbounded amount, which is a
+// claim about honesty rather than about containment.
+const (
+	// RecordSizeBound is the largest record the runner opens. A record is
+	// prose somebody wrote about one question, and the longest in this tree
+	// is under four kilobytes, so sixty-four is far above anything honest and
+	// far below a file that costs anything to refuse.
+	RecordSizeBound = 64 << 10
+
+	// WalkDepthBound is how far below the root the stray-record walk
+	// descends. The deepest directory this repository's own layout reaches is
+	// two below the root, and the fixtures reach six, so sixteen is a bound a
+	// tree meets only when it was built rather than written.
+	WalkDepthBound = 16
+)
+
 // gitDir is the checkout's own machinery rather than part of the tree record
 // 0002 describes. That record fixes the layout against what git tracks, which
 // it shows with `git ls-tree -d --name-only HEAD`, and that command never
@@ -88,6 +113,34 @@ const (
 	// allows that, and the record still says the measurement is in a script
 	// that no longer exists.
 	RecordNamesAPathThatDoesNotResolve = "record-names-a-path-that-does-not-resolve"
+
+	// RecordNamesAPathOutsideTheRepository refuses a record naming a path
+	// that resolves outside the tree the run was pointed at. Enough leading
+	// steps upward in a path a record names reach a file on the machine the
+	// run is on, the file is there, and the run reports that the record is in
+	// order because it read something that has nothing to do with this
+	// repository. It is refused rather than resolved, because a rule that
+	// follows the path and then judges where it landed has to be right about
+	// every filesystem the release targets.
+	//
+	// It is a separate property from the one above rather than a second arm
+	// of it, because the repairs are different. A path that does not resolve
+	// is usually a file that moved. A path that leaves the repository was
+	// never going to resolve here whatever the tree held.
+	RecordNamesAPathOutsideTheRepository = "record-names-a-path-outside-the-repository"
+
+	// RecordIsAboveTheSizeBound refuses a record larger than the bound above
+	// without opening it. A checker that reads whatever it is pointed at
+	// stops on the first tree somebody builds badly, and the first such tree
+	// here will be an accident rather than an attack.
+	RecordIsAboveTheSizeBound = "record-is-above-the-size-bound"
+
+	// TheTreeIsDeeperThanTheWalkReads refuses a directory below the depth
+	// bound above and does not descend into it. The walk that finds a record
+	// outside the place records live reads the whole tree, so its cost is
+	// whatever the tree makes it, and a bound is the only thing that keeps a
+	// run finite against a tree nobody wrote by hand.
+	TheTreeIsDeeperThanTheWalkReads = "the-tree-is-deeper-than-the-walk-reads"
 
 	// RecordStateIsNotOneOfTheThree refuses a record whose state is not one
 	// of the three record 0003 names, which includes a state that is
@@ -368,6 +421,20 @@ func walkExperiments(root string, res *Result) error {
 			experiments = append(experiments, seen)
 			continue
 		}
+		// The size is read from the entry rather than from the file, so a
+		// record above the bound is refused without ever being opened.
+		// Reading it to find out how big it is would be the thing the bound
+		// exists to prevent.
+		if recordInfo.Size() > RecordSizeBound {
+			res.Refusals = append(res.Refusals, Refusal{
+				Property: RecordIsAboveTheSizeBound,
+				Subject:  record,
+				Detail: fmt.Sprintf("it is %d bytes and the runner opens at most %d, so it was not read",
+					recordInfo.Size(), RecordSizeBound),
+			})
+			experiments = append(experiments, seen)
+			continue
+		}
 		data, err := readRecord(record)
 		if err != nil {
 			return err
@@ -463,6 +530,24 @@ func refuseStrayRecords(root string) ([]Refusal, error) {
 			if path != root && (entry.Name() == gitDir || entry.Name() == FixturesDir) {
 				return fs.SkipDir
 			}
+			deeper, err := depthOf(root, path)
+			if err != nil {
+				return err
+			}
+			if deeper > WalkDepthBound {
+				// Refused and not descended into, so the refusal is one line
+				// naming the directory the walk stopped at rather than one
+				// per directory below it. What a reader has to repair is the
+				// shape of the tree, and a hundred refusals about it say the
+				// same thing a hundred times.
+				refusals = append(refusals, Refusal{
+					Property: TheTreeIsDeeperThanTheWalkReads,
+					Subject:  path,
+					Detail: fmt.Sprintf("it is %d directories below %s and the walk reads at most %d, so nothing under it was examined",
+						deeper, root, WalkDepthBound),
+				})
+				return fs.SkipDir
+			}
 			return nil
 		}
 		if entry.Name() != RecordName {
@@ -503,6 +588,18 @@ func refusePaths(root, path string, data []byte) []Refusal {
 	var refusals []Refusal
 
 	for _, named := range pathsNamedInProse(string(data)) {
+		// Asked before the file is looked for, so that a path leaving the
+		// repository is refused for leaving it rather than for whether
+		// something happens to sit at the other end. Those are different
+		// statements and only one of them is about this tree.
+		if !insideTheRepository(root, named) {
+			refusals = append(refusals, Refusal{
+				Property: RecordNamesAPathOutsideTheRepository,
+				Subject:  path,
+				Detail:   fmt.Sprintf("it names %s, which resolves outside %s, so whatever is at the other end was not put there by this repository", named, root),
+			})
+			continue
+		}
 		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(named))); err == nil {
 			continue
 		}
@@ -514,6 +611,36 @@ func refusePaths(root, path string, data []byte) []Refusal {
 	}
 
 	return refusals
+}
+
+// insideTheRepository says whether a path a record names stays inside the tree
+// the run was pointed at. It answers about the string rather than about the
+// filesystem: filepath.Join cleans the steps upward away, and what is left
+// either sits under the root or does not.
+//
+// WHAT IT DOES NOT ANSWER. It is a judgement about a path and never about a
+// link. A path that stays inside the root and lands on a symbolic link pointing
+// out of the tree passes this, and refusing that link is the half of issue #61
+// this does not carry.
+func insideTheRepository(root, named string) bool {
+	relative, err := filepath.Rel(root, filepath.Join(root, filepath.FromSlash(named)))
+	if err != nil {
+		return false
+	}
+	return relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
+}
+
+// depthOf says how many directories below the root a path sits. The root itself
+// is zero.
+func depthOf(root, path string) (int, error) {
+	relative, err := filepath.Rel(root, path)
+	if err != nil {
+		return 0, fmt.Errorf("cannot place %s inside %s: %w", path, root, err)
+	}
+	if relative == "." {
+		return 0, nil
+	}
+	return len(strings.Split(filepath.ToSlash(relative), "/")), nil
 }
 
 // refuseState holds a record to what its own state says about it. Record 0003
