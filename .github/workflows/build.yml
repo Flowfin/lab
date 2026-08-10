@@ -193,6 +193,20 @@ jobs:
             echo "::error::The suite reported success having executed no tests on ${PLATFORM}."
             exit 1
           fi
+          # The run has to say what it did not cover. internal/hardware prints
+          # one line when its harness was not asked for, saying so and what
+          # asking would cost, and it is printed by a package that passes, so
+          # it reaches the log only under -v. Dropping that flag, or losing the
+          # disclosure, would leave a run that covered less than the whole set
+          # looking exactly like one that covered it and found nothing. The
+          # string is hardware.Disclosure()'s, and a reword there reddens this
+          # rather than passing in silence.
+          disclosed=$(grep -cF 'integration-hardware harness was not asked for' suite.log || true)
+          if [ "$disclosed" -eq 0 ]; then
+            echo "::error::The suite printed no integration-hardware disclosure on ${PLATFORM}, so this run covered less than the whole set without saying so."
+            exit 1
+          fi
+          echo "${PLATFORM}: the integration-hardware disclosure was printed"
 
   vet:
     name: vet
