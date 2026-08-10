@@ -109,3 +109,12 @@ jobs:
             echo "::error::The suite reported success having executed no tests."
             exit 1
           fi
+          # The same disclosure check the build workflow carries, and for the
+          # same reason: a run that covered less than the whole set has to say
+          # so. The string is hardware.Disclosure()'s.
+          disclosed=$(grep -cF 'integration-hardware harness was not asked for' suite.log || true)
+          if [ "$disclosed" -eq 0 ]; then
+            echo "::error::The suite printed no integration-hardware disclosure, so this run covered less than the whole set without saying so."
+            exit 1
+          fi
+          echo "with no display and no elevation: the integration-hardware disclosure was printed"

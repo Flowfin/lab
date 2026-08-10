@@ -15,11 +15,21 @@ Run these, in this order, from the root of a checkout:
 go build ./...
 go vet ./...
 gofmt -l .
-go test ./...
+go test -count=1 -v ./...
 ```
 
 `gofmt -l` prints the files it would change and exits zero either way, so read
 its output rather than its exit code. No output is the passing result.
+
+The two flags on the suite are not decoration and the command said `go test
+./...` until they were added. `-count=1` runs the tests rather than replaying a
+cached result, so a green run is one that happened on this machine. `-v` is
+what makes the run say what it did not cover: `go test` prints nothing at all
+for a package that passes, and the line saying the integration-hardware harness
+was not asked for and what asking would cost is printed by a package that
+passes. Without `-v` a run that covered less than the whole set reads exactly
+like one that covered it and found nothing, which is the reading the harness
+under `internal/hardware/` exists to prevent.
 
 That is what the gate runs on the server, so running it here means running the
 same thing rather than something that resembles it. What the checks are and what
