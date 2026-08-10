@@ -26,6 +26,22 @@ updates:
     # Weekly rather than daily. The actions here are few and a daily cadence on
     # a board with weeks between changes produces a queue of open pull requests
     # that teaches a reader to scroll past them.
+    #
+    # A published release does not become a pull request here for seven days.
+    # The window is what a compromised or yanked release is caught in: an
+    # account takeover that publishes a malicious version is usually found
+    # within days, and an update tool with no cooldown proposes that version
+    # while it is still the newest thing anybody has seen. The audit job in
+    # zizmor.yml refuses a configuration without one, so this is checkable
+    # rather than advisory.
+    #
+    # What it costs is that a genuine fix waits the same seven days. That is
+    # paid knowingly: nothing here is exposed to the internet, no release is
+    # published from this tree today, and a fix that cannot wait a week is one
+    # somebody moves by hand rather than one this file was going to deliver
+    # faster.
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message:
       prefix: "actions"
@@ -46,6 +62,10 @@ updates:
     # the day somebody adds a dependency, and an entry added then is an entry
     # somebody has to remember. Near-zero dependencies is one of the reasons the
     # runner's language was chosen, and this is what notices when it changes.
+    #
+    # The same window as the entry above and for the same reason.
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message:
       prefix: "go"
