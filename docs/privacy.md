@@ -72,26 +72,37 @@ operator. The intended-use notice is where that responsibility is placed.
 
 ## What stands behind this
 
-Nothing yet, and that is the honest answer rather than a temporary one.
-
-There is no runner in this tree, so the claim that it opens no network connection
-is a commitment about what will be built rather than a description of something
-that exists:
+The claim that the runner opens no network connection is tested, and the test
+is in the default suite. Run it:
 
 ```
-git ls-files cmd internal | wc -l
-0
+go test ./cmd/lab -count=1 -v -run 'TestTheRunnerLinksNoNetworkPackage|TestAFullRunOverTheLargestTreeCompletes'
 ```
 
-Issue #34 is where that claim gets a test that proves it, and until that lands the
-sentence above is a promise a reader has to take on trust. Issue #27 keeps the
-list of what the repository depends on, which is the other half of the same
-argument, because a tool with no dependencies has very few places for a network
-call to hide.
+Two legs, because each catches what the other misses. The first reads the
+runner's whole transitive dependency set from the toolchain and refuses any
+package that can open a socket, so a network client cannot arrive inside a
+dependency nobody read. The second runs every verb the runner has over the two
+largest trees in this repository and asserts each one reached a verdict, so a
+route that is never exercised is not mistaken for one that is clean. The test
+prints how many packages it read and how many files each tree held, so a reader
+sees the size of what was covered rather than being told it was enough.
+
+What the pair proves is that a full run executed in a binary that links nothing
+able to open a connection. That is a structural argument rather than an
+observation. Nothing here watches system calls, and a run under a tracer would
+say more while saying it on one platform only, so this is not a claim that
+something watched the process and saw no traffic. The bound is written at the
+test as well, in `cmd/lab/network_test.go`, so it is not only here.
+
+The other half of the same argument is what the repository depends on, which is
+[docs/supply-chain.md](supply-chain.md). A tool with no dependencies has very
+few places for a network call to hide, and the dependency leg above is what
+holds that true rather than assumed.
 
 The rule about real data staying on the host has no mechanism behind it and can
-have none. Nothing in a checkout can tell a number somebody measured on their own
-machine from a number they made up, and no check reads what an experiment did
-before it wrote its record. Review is where a record carrying something it should
-not is caught, and this is stated plainly here rather than left for a reader to
-assume otherwise.
+have none. Nothing in a checkout can tell a number somebody measured on their
+own machine from a number they made up, and no check reads what an experiment
+did before it wrote its record. Review is where a record carrying something it
+should not is caught, and this is stated plainly here rather than left for a
+reader to assume otherwise.
