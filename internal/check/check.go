@@ -459,6 +459,7 @@ func walkExperiments(root string, res *Result) error {
 		res.Refusals = append(res.Refusals, refusePaths(root, record, data)...)
 		res.Refusals = append(res.Refusals, refuseQuestion(record, data)...)
 		res.Refusals = append(res.Refusals, refuseState(record, data)...)
+		res.Refusals = append(res.Refusals, refuseHeaderDates(record, data)...)
 		res.Refusals = append(res.Refusals, refuseDates(record, data, res.Now)...)
 		res.Refusals = append(res.Refusals, refusePromotion(record, data)...)
 		if parsed, err := ParseRecord(data); err == nil {
