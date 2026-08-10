@@ -1,38 +1,62 @@
 # lab
 
-Every other board in this organisation carries a promise, which is right for them and makes them a bad place to try something that will probably fail. Without somewhere to fail, experiments either do not happen or they happen inside a board that then has to explain them. The rule that keeps this from becoming a graveyard is that every experiment states its question before it starts and its answer when it stops, and the answer may be no. An experiment with no written answer is not finished, it is abandoned, and the difference should be visible. Everything here is public from the first commit, which means a failed experiment is public too.
+This is where questions that will probably fail get asked. Every other board in
+this organisation carries a promise, which is right for them and makes them a
+bad place to try something. Without somewhere to fail, an experiment either does
+not happen or it happens inside a board that then has to explain it.
 
-To see what has been tried and how it ended, run this from a checkout:
+It takes questions and nothing else. Not software anybody is asked to install,
+not work that is announced before it is done, and not anything another board is
+allowed to depend on. Each of those is out for its own reason, and
+[CONTRIBUTING.md](CONTRIBUTING.md) is where the three are argued.
+
+## What an experiment is here
+
+One directory, one question, and a record that says which. The question is
+written and committed before the work starts, because a question written
+afterwards is a question the result cannot have failed to fit. The record then
+says how it ended.
+
+No is an answer, and an experiment that answered no is finished rather than
+failed. So is finding out that the question was the wrong question. What is not
+finished is an experiment nobody wrote an answer for, and the record makes that
+visible instead of leaving it to be guessed at. The three states a record can be
+in, and what each one means, are in
+[docs/decisions/0003-the-experiment-lifecycle.md](docs/decisions/0003-the-experiment-lifecycle.md).
+
+Everything here is public from the first commit, a failed experiment included.
+
+## Seeing what has been tried
+
+From a checkout:
 
 ```
 go run ./cmd/lab list
 ```
 
-It prints one line per experiment, oldest unanswered first, with how long each
-unanswered question has been waiting. The output is not reproduced here on
-purpose. A listing copied into a page is correct on the day it is copied and
-wrong on the next experiment, and it is wrong in the direction that matters,
-which is a record that exists in the tree and not in the page a visitor reads.
+One line per experiment, oldest unanswered first, with how long each unanswered
+question has been waiting. The output is not reproduced on this page on purpose:
+a listing copied into a document is correct on the day it is copied and wrong on
+the next experiment, and it is wrong in the direction that matters, which is a
+record that exists in the tree and not in the page a visitor reads.
 
-Planning happens on the issue tracker first. Every decision that shapes
-the architecture is argued there with its reasons before the code
-that depends on it exists.
+The same runner has a verb that judges the tree rather than describing it, and
+[CONTRIBUTING.md](CONTRIBUTING.md) is where that one and the rest of the checks
+are.
 
-What survives the argument is written down in
-[docs/decisions/](docs/decisions/). Each record is numbered, says what was
-decided, what it applies to, what else was considered and what each rejected
-option would have cost, and is replaced by a later record rather than edited.
+## Where the rest is
 
-Because everything here is public, some things may never be committed. No
-credential, token or key, including expired ones. No personal data of any kind.
-No copy of a real media library, real account data or real logs from a running
-server. No file whose licence forbids it being here. The reasoning behind the
-list is in
-[docs/decisions/0006-everything-here-is-public.md](docs/decisions/0006-everything-here-is-public.md).
+[docs/decisions/](docs/decisions/) holds every decision that shapes this board,
+numbered, each with what was considered and what the rejected options would have
+cost. A record is replaced by a later record rather than edited, so the
+directory is a history of the argument rather than a description of today.
 
-Nothing here uploads, phones home or reports usage, and real data an experiment
-measures against stays on the machine it is already on.
-[docs/privacy.md](docs/privacy.md) is the whole position, including what it does
-not cover.
+[NOTICE.md](NOTICE.md) is the intended-use notice.
 
-See [NOTICE.md](NOTICE.md) for the intended-use notice.
+[docs/privacy.md](docs/privacy.md) is the privacy position, including what it
+does not cover.
+
+There is no licence file. That is not a neutral state, since without one nobody
+has permission to reuse anything here, and it is the first entry of the open
+question that collects the decisions this plan does not take. Until it is
+answered, treat everything on this board as readable and not as reusable.
