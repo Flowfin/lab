@@ -1,0 +1,54 @@
+# Keep the pinned actions current.
+#
+# Every workflow here pins the actions it uses to a commit with the version in a
+# comment. That is the right shape and it is also a shape that goes stale in
+# silence: a pin does not move when the action it names publishes a fix, and a
+# repository that pins everything and updates nothing is running the code it
+# reviewed once, for as long as nobody looks. Nothing in this tree moved those
+# pins before this file existed.
+#
+# WHAT AN UPDATE TOOL DOES NOT DO, and it belongs here rather than only in the
+# issue that asked for the file. It proposes and it does not review. A version
+# bump that arrives as a pull request has been read by nothing until somebody
+# reads it, and a green tick on that pull request says the checks passed rather
+# than that the change is wanted. Nobody should be able to read an automated
+# update as a reviewed one.
+#
+# Updates arrive as pull requests, which is the point. An update then walks the
+# same gate as any other change instead of arriving as a push nobody reads.
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    # Weekly rather than daily. The actions here are few and a daily cadence on
+    # a board with weeks between changes produces a queue of open pull requests
+    # that teaches a reader to scroll past them.
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "actions"
+    labels:
+      - ci
+      - security
+
+  - package-ecosystem: gomod
+    directory: "/"
+    schedule:
+      interval: weekly
+    # The runner has no dependencies today, so this entry finds nothing:
+    #
+    #     go list -m all
+    #     github.com/Flowfin/lab
+    #
+    # It is here rather than left out because the day that stops being true is
+    # the day somebody adds a dependency, and an entry added then is an entry
+    # somebody has to remember. Near-zero dependencies is one of the reasons the
+    # runner's language was chosen, and this is what notices when it changes.
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "go"
+    labels:
+      - ci
+      - security
