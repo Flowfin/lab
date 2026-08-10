@@ -1,0 +1,93 @@
+# The invariants that are properties of this repository's own tracked text.
+#
+# It is separate from the build and test workflow and from the records workflow
+# on purpose, because the three answer different questions. That one says the
+# tool compiles and its tests pass. The records one says this repository's own
+# experiment records are in order. This one says the guards that are properties
+# of the text itself are still intact: the intended-use notice is present and
+# reachable, no credential shape and no attribution marker is in tracked text,
+# and every path this repository's own documents name resolves. A reader looking
+# at a red tick should know which of those broke without opening it.
+#
+# The check name below is what a required set refers to later, and a job renamed
+# in passing removes itself from that set while the tab still looks green. The
+# name is written here rather than left to the job id for that reason, and
+# changing it is a change to the gate rather than tidying.
+#
+# WHAT A GREEN RUN HERE DOES NOT SAY. The credential leg is a floor: it holds
+# the shapes that have actually leaked in projects of this kind and it will not
+# catch one nobody has written yet. Neither leg reads testdata/, which is where
+# the fixtures that prove them live and therefore where a real credential would
+# not be caught. Both bounds are written at the checks themselves, in
+# internal/invariants/, rather than only here.
+#
+# Hardened the way every other workflow in this tree is, because the audit job in
+# zizmor.yml refuses a new one that departs from it: permissions denied at the
+# top and granted per job, every action pinned to a commit with its version in a
+# comment, and checkout without persisted credentials.
+name: Invariants
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+# Explicit deny-all at workflow level; the job below grants only what it needs.
+permissions: {}
+
+# Cancel a superseded run on the same ref. Nothing here publishes, so a run that
+# has been overtaken is safe to drop.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  invariants:
+    name: invariants
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # The toolchain comes from go.mod, so the version this job uses moves
+          # when the module says so and never separately.
+          go-version-file: go.mod
+          # This module has no dependencies and therefore no go.sum for a cache
+          # key to be built from. Asking for a cache anyway makes the step
+          # depend on a file that is not there.
+          cache: false
+
+      - name: Check this repository's invariants
+        # The two tests that read this repository rather than a fixture. The
+        # fixtures that prove each leg bites run in the build and test workflow
+        # with the rest of the suite, so they are not run twice here.
+        #
+        # -run selects by name, and a name that stops matching selects nothing
+        # and exits zero, which is the same green tick as a run that passed.
+        # That is the failure this whole file exists to make impossible
+        # elsewhere, so the step counts what executed rather than trusting the
+        # exit code, the way the suite step in build.yml already does.
+        #
+        # -v also puts the report in the log, including the line saying which
+        # leg was not asked, so a reader sees what the run covered instead of
+        # only that it was green.
+        run: |
+          set -euo pipefail
+          go test ./internal/invariants \
+            -run 'TestThisRepositorySatisfiesTheInvariants|TestTheLicenceLegSaysWhetherItWasAsked' \
+            -count=1 -v 2>&1 | tee invariants.log
+          executed=$(grep -cE '^--- (PASS|FAIL): ' invariants.log || true)
+          echo "executed ${executed} test(s)"
+          if [ "$executed" -ne 2 ]; then
+            echo "::error::This step is written to run two tests and ${executed} executed. A test that was renamed selects nothing and exits zero, which looks identical to a run that passed."
+            exit 1
+          fi
