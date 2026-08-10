@@ -189,6 +189,21 @@ const (
 	// printing, which is why this is the near miss worth a fixture.
 	QuestionDatedLaterThanTheRun = "question-dated-later-than-the-run"
 
+	// RecordStatesNoQuestion refuses a record whose question section is empty
+	// or absent. It is the second half of the rule this board is built on:
+	// an experiment states its question before it starts, and a directory that
+	// carries a record with nothing written under the question has stated
+	// none. A heading with nothing under it is the same failure wearing a hat,
+	// which is why the two are one property with two details rather than a
+	// rule about a heading and a separate rule about text.
+	//
+	// WHAT IT DOES NOT JUDGE. Whether the question is a good question, whether
+	// it is really one question, and whether it is a question at all rather
+	// than a topic. No reading of a tree makes any of those, and review is
+	// where a bad question is caught. What a green run says here is that
+	// somebody wrote something under the heading before the work started.
+	RecordStatesNoQuestion = "record-states-no-question"
+
 	// RootHoldsADirectoryTheLayoutDoesNotName refuses a directory at the root
 	// of the tree that record 0002 does not name. That record fixes the
 	// layout and says a directory it does not name is refused rather than
@@ -442,6 +457,7 @@ func walkExperiments(root string, res *Result) error {
 		res.Records++
 		res.Refusals = append(res.Refusals, refuseBytes(record, data)...)
 		res.Refusals = append(res.Refusals, refusePaths(root, record, data)...)
+		res.Refusals = append(res.Refusals, refuseQuestion(record, data)...)
 		res.Refusals = append(res.Refusals, refuseState(record, data)...)
 		res.Refusals = append(res.Refusals, refuseDates(record, data, res.Now)...)
 		res.Refusals = append(res.Refusals, refusePromotion(record, data)...)
@@ -643,6 +659,58 @@ func depthOf(root, path string) (int, error) {
 	return len(strings.Split(filepath.ToSlash(relative), "/")), nil
 }
 
+// refuseQuestion holds a record to having written its question. Record 0008
+// puts the question under a level-two heading and record 0003 says an
+// experiment states it before the work starts; this is the half of that a
+// machine can see.
+//
+// The two arms are the same failure at different stages. A record with no
+// question heading is somebody who meant to write it later. A record with the
+// heading and nothing under it is somebody who started the template and
+// stopped, and it is the one that passes a reader's glance, because the shape
+// of a record is all there.
+//
+// WHERE THIS DOES NOT REACH, and it reaches less far than the property name
+// suggests. A record whose bytes do not parse as a record is not judged here,
+// for the same reason refuseState does not judge one: nothing can read a
+// section out of a file that has no header, and a refusal about the question
+// would send whoever hit it to the wrong repair. So a file under experiments/
+// called EXPERIMENT.md that is ordinary prose with no header states no
+// question and passes this, and the walk counts it as a record read. That hole
+// is the one refuseState's own comment names, it is not closed here, and a
+// green run should be read with it in view.
+//
+// It also judges nothing about what the question says. One character under the
+// heading satisfies it. What it converts is the case where nothing was written
+// at all, which is the case the rule exists for and the only one a reading of
+// the tree can separate from the rest.
+func refuseQuestion(path string, data []byte) []Refusal {
+	rec, err := ParseRecord(data)
+	if err != nil {
+		return nil
+	}
+
+	question, present := rec.Section(SectionQuestion)
+	switch {
+	case !present:
+		return []Refusal{{
+			Property: RecordStatesNoQuestion,
+			Subject:  path,
+			Detail: fmt.Sprintf("it carries no %s section at all, so it states no question, and record 0008 puts the question under that heading",
+				SectionQuestion),
+		}}
+	case strings.TrimSpace(question) == "":
+		return []Refusal{{
+			Property: RecordStatesNoQuestion,
+			Subject:  path,
+			Detail: fmt.Sprintf("its %s heading is there with nothing under it, so it states no question",
+				SectionQuestion),
+		}}
+	}
+
+	return nil
+}
+
 // refuseState holds a record to what its own state says about it. Record 0003
 // fixes the three states and what each one requires; this is the half of that
 // a machine can see.
@@ -660,8 +728,10 @@ func depthOf(root, path string) (int, error) {
 // header, and inventing a state refusal for it would name the wrong repair:
 // whoever hits it has a file that is not a record rather than a record with a
 // bad state. So a record with no header passes every rule below, which is a
-// hole, and it is issue #16's rather than this one's. Read a green run
-// accordingly.
+// hole. It is still open: refuseQuestion above reaches the same wall from the
+// other side and says so at itself, and no check in this package refuses a
+// file under experiments/ that is called EXPERIMENT.md and is not a record.
+// Read a green run accordingly.
 func refuseState(path string, data []byte) []Refusal {
 	rec, err := ParseRecord(data)
 	if err != nil {
