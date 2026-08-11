@@ -1,6 +1,7 @@
 Slug: reading-a-tree-of-records
-State: asking
+State: answered
 Question-Written: 2026-08-11
+Answer-Written: 2026-08-11
 Needs-Hardware: none
 
 ## Question
@@ -36,3 +37,30 @@ architecture and the toolchain version are printed next to the numbers, and no
 number here is a claim about anybody else's machine.
 
 ## Answer
+
+Yes, and by about three times. Reading the records is where the time goes.
+
+    go run ./experiments/reading-a-tree-of-records
+    windows/amd64, go1.26.5
+    1000 experiments, 1108000 bytes of records, 7 rounds
+    walking the directories:        16.6888ms
+    walking and reading every file: 50.5875ms
+    reading costs 3.03 times the walk
+
+Two more runs of the same command on the same machine gave 3.04 and 2.93, so
+the ratio is stable to about a tenth and the absolute numbers move by a few
+milliseconds between runs. Those two runs are not pasted, and their numbers are
+quoted from the same command as the one above.
+
+What it does not say. This is one machine, one filesystem and one platform, and
+the cost of asking a filesystem about a file rather than opening it is exactly
+the sort of thing that differs between them. A tree of a thousand records is
+also fifty times the size of this repository's own tree today, so the whole
+measurement is milliseconds either way and none of it is a reason to change
+anything yet. What it settles is which of the two numbers is worth watching if a
+walk ever does get slow: the bytes, not the directories.
+
+The question was a fair one to have asked, and it could have gone the other way.
+A directory walk that has to open each directory in turn is not obviously
+cheaper than reading a kilobyte out of a file the walk has already found, and on
+a filesystem with a slower directory layer it may not be.
