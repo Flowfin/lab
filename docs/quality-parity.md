@@ -56,7 +56,7 @@ today no tick does.
 | `CodeQL` | Kept, retargeted | Static analysis of the runner's own source, in the language record `0001` chose rather than in C#. |
 | `Analyze (csharp)` | Dropped as a name | The language-specific analysis job is replaced by the equivalent for this language rather than carried across under a name that describes nothing here. |
 | `DCO sign-off` | Kept unchanged | Already in the tree, asserting the text at `DCO` on every non-merge commit. |
-| `Deterministic PR-hygiene checks` | Kept, adapted | The class the other checks miss is the pull request itself, and one of the three refusals is this board's own invariant about a record moving with the code it describes. Issue #24 builds it and nothing in this tree reasons about a pull request today. |
+| `Deterministic PR-hygiene checks` | Kept, adapted | The class the other checks miss is the pull request itself, and one of the three refusals is this board's own invariant about a record moving with the code it describes. It is in the tree as the `pull request` job, judged in `internal/pullrequest/` and run from `.github/workflows/pull-request.yml`. |
 | `Enforce greppable invariants` | Kept, different invariants | The invariants are properties of this repository's own tracked text, which is a different set from the target's, and they are in `internal/invariants/`. |
 | `Reject Trojan Source Unicode` | Kept unchanged | Already in the tree, and the attack it refuses is a property of source rather than of a language. |
 | `Audit workflows (zizmor)` | Kept unchanged | Already in the tree. The workflow YAML is the other executable thing here and it runs with write scopes. |

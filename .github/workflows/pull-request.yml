@@ -1,0 +1,87 @@
+# The pull request itself, checked on the way in.
+#
+# Every other check here reads a checkout. The record checks walk experiments/,
+# the invariants read tracked text, the formatting rules read the bytes around
+# the words, and the build and test workflow says the runner compiles and its
+# tests pass. None of them can see the change: whether it says which problem it
+# solves, and whether the record moved with the code it describes. That class is
+# what this one is for.
+#
+# WHAT IT DOES NOT JUDGE. It never asks whether the change is good and it never
+# says the change was read. Each rule is a property of the shape of a pull
+# request rather than of its content: that a number was written down, not that
+# it is the right number; that two files moved together, not that what they say
+# agrees. The reasons are written at the rules themselves, in
+# internal/pullrequest/, rather than only here.
+#
+# It runs on pull requests and on nothing else. A push carries no pull request,
+# so a run there could only report that it judged nothing, and a green tick over
+# a run that judged nothing is the reading this whole check is built to prevent.
+# There is no path filter and no job-level condition, so the context arrives on
+# every pull request rather than on the ones somebody expected it to matter for.
+#
+# The check name below is what a required set refers to later, and a job renamed
+# in passing removes itself from that set while the tab still looks green. The
+# name is written here rather than left to the job id for that reason, and
+# changing it is a change to the gate rather than tidying.
+#
+# Hardened the way every other workflow in this tree is, because the audit job in
+# zizmor.yml refuses a new one that departs from it: permissions denied at the
+# top and granted per job, every action pinned to a commit with its version in a
+# comment, and checkout without persisted credentials.
+name: Pull request
+
+on:
+  pull_request:
+    branches: ["**"]
+
+# Explicit deny-all at workflow level; the job below grants only what it needs.
+permissions: {}
+
+# Cancel a superseded run on the same ref. Nothing here publishes, so a run that
+# has been overtaken is safe to drop.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pull-request:
+    name: pull request
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The whole history, because the check reads the range between the two
+          # ends of the pull request and a shallow clone has no commit the two
+          # ends agree on. Without this the check cannot do its job, which it
+          # reports as such rather than as a clean pull request.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # The toolchain comes from go.mod, so the version this job uses moves
+          # when the module says so and never separately.
+          go-version-file: go.mod
+          # This module has no dependencies and therefore no go.sum for a cache
+          # key to be built from. Asking for a cache anyway makes the step
+          # depend on a file that is not there.
+          cache: false
+
+      - name: Judge this pull request
+        # Built from this commit rather than downloaded, so a change that breaks
+        # a refusal is caught by the pull request that made it. The exit codes
+        # are the contract in docs/decisions/0011-the-exit-codes.md: 0 refused
+        # nothing, 1 refused something, 2 could not do the job. This step keys
+        # on all three by letting the command's own code become the job's.
+        #
+        # Nothing is expanded into this line. What the check reads about the
+        # pull request it reads out of the event file the platform wrote, whose
+        # path is in the environment, so no value an author controls is ever
+        # part of a command.
+        run: go run ./cmd/pullrequest
