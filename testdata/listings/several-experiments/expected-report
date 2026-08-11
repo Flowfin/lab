@@ -1,10 +1,10 @@
 examined ../../testdata/listings/several-experiments/tree
 6 experiments
 the time this run read is 2026-09-15T12:00:00Z
-  slug              state       question written  waiting
-  oldest-question   asking      2026-05-01        137 days
-  newer-question    asking      2026-07-15        62 days
-  given-up          abandoned   2026-03-01        -
-  already-answered  answered    2026-04-01        -
-  no-header         unreadable  unreadable        -
-  no-record-at-all  no record   no record         -
+  slug              state       question written  waiting   needs
+  oldest-question   asking      2026-05-01        137 days  a spinning disk
+  newer-question    asking      2026-07-15        62 days   none
+  given-up          abandoned   2026-03-01        -         not declared
+  already-answered  answered    2026-04-01        -         not declared
+  no-header         unreadable  unreadable        -         unreadable
+  no-record-at-all  no record   no record         -         no record

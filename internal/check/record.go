@@ -26,7 +26,18 @@ const (
 	// FieldAnswerWritten is the date the answer was written. It is absent
 	// until there is an answer.
 	FieldAnswerWritten = "Answer-Written"
+
+	// FieldNeedsHardware is what an experiment needs beyond the runner, in
+	// words somebody can act on, or HardwareNone. Record 0015 adds it and
+	// record 0013 makes it optional, so it is absent from every record
+	// written before it and that is never a refusal.
+	FieldNeedsHardware = "Needs-Hardware"
 )
+
+// HardwareNone is how a record says it needs nothing beyond the runner. It is
+// the word that makes the declaration checkable in both directions: an absent
+// field says nothing a tree can contradict, and this says something it can.
+const HardwareNone = "none"
 
 // The three states record 0003 fixes, written exactly as that record writes
 // them.

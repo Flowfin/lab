@@ -1,7 +1,8 @@
 # 0008. What an experiment record looks like
 
-Superseded by 0014, which fixes what a slug may be. Everything below stands as
-it was written.
+Superseded by 0014, which fixes what a slug may be, and by 0015, which adds the
+field naming what an experiment needs beyond the runner. Everything below stands
+as it was written.
 
 ## What was decided
 

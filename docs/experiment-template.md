@@ -1,6 +1,7 @@
 Slug: the-slug-of-this-experiment
 State: asking
 Question-Written: 2026-01-01
+Needs-Hardware: none
 
 Copy this file to `experiments/<slug>/EXPERIMENT.md` and replace every value in
 the header above. The slug is the name of the directory this record sits in. The
@@ -9,8 +10,17 @@ day the question below was written, as `YYYY-MM-DD`, and it does not move
 afterwards, because the listing sorts by it. Add `Answer-Written` in the same
 change that writes the answer.
 
-The format is `docs/decisions/0008-the-experiment-record.md`. This file is a
-convenience and that record is the authority.
+`Needs-Hardware` is what this experiment needs beyond the runner, in words
+somebody deciding whether to reproduce it can act on, or `none`. It starts at
+`none` here because that is the right answer for almost every experiment. A test
+that genuinely needs a device is registered in the integration-hardware harness
+under `internal/hardware`, in a file whose name ends
+`_integration_hardware_test.go`, and a record that says one thing while the
+directory says the other is refused.
+
+The format is `docs/decisions/0008-the-experiment-record.md`, as added to by
+`docs/decisions/0015-an-experiment-declares-the-harness-it-needs.md`. This file
+is a convenience and those records are the authority.
 
 ## Question
 
