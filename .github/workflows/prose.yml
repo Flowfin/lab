@@ -1,0 +1,98 @@
+# The formatting of this repository's tracked prose.
+#
+# The target gate this board is held against runs a formatter over its source
+# and its documents. That check is kept here and split in two, because the two
+# halves have different subjects: the runner's own source is held to gofmt by
+# the format job in build.yml, and this is the other half. The records are the
+# primary artefact here rather than a supporting detail, so the diff a reviewer
+# reads is the product, and a whitespace change mixed into a content change is
+# the one thing that reliably hides a sentence nobody meant to change.
+#
+# It is separate from the invariants workflow and from the records workflow on
+# purpose, because the three answer different questions. The records one says
+# this repository's own experiment records are in order. The invariants one says
+# the guards that are properties of the text itself are intact. This one says
+# the bytes around the words are the bytes everybody agreed on. A reader looking
+# at a red tick should know which of those broke without opening it.
+#
+# The check name below is what a required set refers to later, and a job renamed
+# in passing removes itself from that set while the tab still looks green. The
+# name is written here rather than left to the job id for that reason, and
+# changing it is a change to the gate rather than tidying.
+#
+# WHAT A GREEN RUN HERE DOES NOT SAY. Formatting is not correctness and it is
+# not honesty: a record can be perfectly formatted and say nothing, and the
+# refusals over the question and the answer are what catch that. It also does
+# not read testdata/, which is where the fixtures that prove these rules live,
+# and where prose departing from them on purpose therefore is. Both bounds are
+# written at the checks themselves, in internal/prose/, rather than only here.
+#
+# Hardened the way every other workflow in this tree is, because the audit job in
+# zizmor.yml refuses a new one that departs from it: permissions denied at the
+# top and granted per job, every action pinned to a commit with its version in a
+# comment, and checkout without persisted credentials.
+name: Prose format
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+# Explicit deny-all at workflow level; the job below grants only what it needs.
+permissions: {}
+
+# Cancel a superseded run on the same ref. Nothing here publishes, so a run that
+# has been overtaken is safe to drop.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prose:
+    name: prose format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # The toolchain comes from go.mod, so the version this job uses moves
+          # when the module says so and never separately.
+          go-version-file: go.mod
+          # This module has no dependencies and therefore no go.sum for a cache
+          # key to be built from. Asking for a cache anyway makes the step
+          # depend on a file that is not there.
+          cache: false
+
+      - name: Check the formatting of this repository's prose
+        # The one test that reads this repository rather than a fixture. The
+        # fixtures that prove each rule bites run in the build and test workflow
+        # with the rest of the suite, so they are not run twice here.
+        #
+        # -run selects by name, and a name that stops matching selects nothing
+        # and exits zero, which is the same green tick as a run that passed.
+        # That is the failure this file exists to make impossible elsewhere, so
+        # the step counts what executed rather than trusting the exit code, the
+        # way the suite step in build.yml and the invariants step already do.
+        #
+        # -v puts the report in the log, so a reader sees how many prose files
+        # the run covered instead of only that it was green.
+        run: |
+          set -euo pipefail
+          go test ./internal/prose \
+            -run 'TestThisRepositorySatisfiesTheProseFormat' \
+            -count=1 -v 2>&1 | tee prose.log
+          executed=$(grep -cE '^--- (PASS|FAIL): ' prose.log || true)
+          echo "executed ${executed} test(s)"
+          if [ "$executed" -ne 1 ]; then
+            echo "::error::This step is written to run one test and ${executed} executed. A test that was renamed selects nothing and exits zero, which looks identical to a run that passed."
+            exit 1
+          fi
