@@ -251,6 +251,15 @@ type Change struct {
 	// found no experiment in a diff it never read is a rule that says nothing.
 	FilesRead bool
 
+	// Records are the experiment records the change touched, at both ends of
+	// the range. They are separate from Files because the rules over them read
+	// bytes rather than paths, and reading the bytes at the base costs a
+	// question per record that the path rules do not need.
+	Records []RecordChange
+
+	// RecordsRead says the records were read at all.
+	RecordsRead bool
+
 	// ChangedLines is how many lines the range added and removed together.
 	ChangedLines int
 
@@ -339,6 +348,7 @@ func Judge(change Change) Verdict {
 	verdict.add(judgeBody(change))
 	verdict.add(judgeCommits(change))
 	verdict.add(judgeExperiments(change))
+	verdict.add(judgeRecords(change))
 	verdict.add(judgeSize(change))
 
 	return verdict
@@ -455,6 +465,15 @@ func judgeExperiments(change Change) Verdict {
 	return verdict
 }
 
+// IsRecordPath says whether a path is an experiment's record. It is exported
+// because whoever assembles a Change has to know which of the paths in a diff
+// are worth asking git about twice, and a second copy of that judgement in the
+// command is a second place for it to be wrong.
+func IsRecordPath(path string) bool {
+	_, isRecord, ok := experimentOf(path)
+	return ok && isRecord
+}
+
 // experimentOf places a path inside an experiment. It returns the slug, whether
 // the path is that experiment's record, and whether the path is inside an
 // experiment at all.
@@ -505,6 +524,7 @@ func (v Verdict) Report(change Change) string {
 	out += fmt.Sprintf("  body: %s\n", describeBody(change))
 	out += fmt.Sprintf("  commits: %s\n", describeCommits(change))
 	out += fmt.Sprintf("  files: %s\n", describeFiles(change))
+	out += fmt.Sprintf("  records: %s\n", describeRecords(change))
 	out += fmt.Sprintf("  lines: %s\n", describeLines(change))
 
 	for _, skip := range v.Skips {
@@ -541,6 +561,19 @@ func describeFiles(change Change) string {
 		return "none were read"
 	}
 	return fmt.Sprintf("%d", len(change.Files))
+}
+
+func describeRecords(change Change) string {
+	if !change.RecordsRead {
+		return "none were read"
+	}
+	landed := 0
+	for _, record := range change.Records {
+		if record.BeforePresent {
+			landed++
+		}
+	}
+	return fmt.Sprintf("%d, %d of them already on the branch this lands on", len(change.Records), landed)
 }
 
 func describeLines(change Change) string {

@@ -36,6 +36,7 @@ func clean() Change {
 		},
 		FilesRead:    true,
 		Files:        []File{{Path: "internal/pullrequest/pullrequest.go"}},
+		RecordsRead:  true,
 		ChangedLines: 12,
 		LinesCounted: true,
 	}
@@ -73,8 +74,12 @@ func TestJudge(t *testing.T) {
 // is removed from the coverage proof below as well. A list of cases kept beside
 // the cases is the shape where a fixture is deleted and the test that counted
 // it goes on counting.
+//
+// The cases over a record at both ends of the range are in record_test.go, next
+// to the rule they are about, and they are returned into this table rather than
+// run from a second harness.
 func judgeCases() []judgeCase {
-	return []judgeCase{
+	return append(recordJudgeCases(), []judgeCase{
 		{
 			name:   "a change that names its issue and touches no experiment",
 			change: clean(),
@@ -283,10 +288,11 @@ func judgeCases() []judgeCase {
 				BodyNamesNoIssue,
 				CommitMessageNamesNoIssue,
 				ExperimentChangedWithoutItsRecord,
+				AnswerAlreadyLandedWasRewritten,
 				ChangeIsLargerThanOneReading,
 			},
 		},
-	}
+	}...)
 }
 
 // TestEveryPropertyHasACaseThatRefusesIt refuses a property no case in the
@@ -302,6 +308,7 @@ func TestEveryPropertyHasACaseThatRefusesIt(t *testing.T) {
 		BodyNamesNoIssue,
 		CommitMessageNamesNoIssue,
 		ExperimentChangedWithoutItsRecord,
+		AnswerAlreadyLandedWasRewritten,
 	}
 
 	refused := make(map[string]bool)

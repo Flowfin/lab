@@ -21,10 +21,17 @@ func event(body string) []byte {
 		body))
 }
 
-// gitSaying answers the three questions the command asks, in whatever order it
-// asks them, and records what it was asked so a test can hold the range to its
-// shape.
+// gitSaying answers the questions the command asks, in whatever order it asks
+// them, and records what it was asked so a test can hold the range to its shape.
 func gitSaying(files, log, numstat string, asked *[][]string) func(...string) ([]byte, error) {
+	return gitSayingWithBlobs(files, log, numstat, nil, asked)
+}
+
+// gitSayingWithBlobs is the same with a tree behind it. The keys are what git
+// show is asked for, `<revision>:<path>`, and a key that is not there is a path
+// that is not in the tree at that revision, which is the answer ls-tree gives
+// as an empty list rather than as a failure.
+func gitSayingWithBlobs(files, log, numstat string, blobs map[string]string, asked *[][]string) func(...string) ([]byte, error) {
 	return func(args ...string) ([]byte, error) {
 		if asked != nil {
 			*asked = append(*asked, args)
@@ -32,6 +39,15 @@ func gitSaying(files, log, numstat string, asked *[][]string) func(...string) ([
 		switch {
 		case args[0] == "log":
 			return []byte(log), nil
+		case args[0] == "show":
+			return []byte(blobs[args[1]]), nil
+		case args[0] == "ls-tree":
+			// ls-tree -z --name-only <revision> -- <path>
+			revision, path := args[3], args[5]
+			if _, present := blobs[revision+":"+path]; !present {
+				return nil, nil
+			}
+			return []byte(path + "\x00"), nil
 		case contains(args, "--numstat"):
 			return []byte(numstat), nil
 		default:
@@ -253,5 +269,58 @@ func TestTheReportSaysWhatItExamined(t *testing.T) {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("the report does not say %q:\n%s", want, out.String())
 		}
+	}
+}
+
+// theLandedRecord is an experiment record in state answered, as it stands on
+// the branch a change lands on.
+const theLandedRecord = "Slug: one\nState: answered\nQuestion-Written: 2026-08-01\n\n" +
+	"## Question\n\nDoes the walk cost more than a second?\n\n" +
+	"## Method\n\nTimed it.\n\n" +
+	"## Answer\n\nNo. It took eleven seconds.\n"
+
+// TestAnAnswerAlreadyLandedIsReadFromBothEndsOfTheRange is the whole route for
+// the rule that a landed answer may grow and may not change: the command asks
+// git for the record at each end of the range, and the judgement compares them.
+// The two pull requests below differ in the answer and in nothing else.
+func TestAnAnswerAlreadyLandedIsReadFromBothEndsOfTheRange(t *testing.T) {
+	const base = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	const head = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	const path = "experiments/one/EXPERIMENT.md"
+
+	rewritten := strings.Replace(theLandedRecord, "It took eleven seconds.", "It took two seconds.", 1)
+	addedTo := theLandedRecord + "\nCorrected on 2026-09-01. Eleven seconds was a cold cache.\n"
+
+	tests := []struct {
+		name string
+		at   string
+		want int
+	}{
+		{name: "the answer is rewritten", at: rewritten, want: exitRefused},
+		{name: "the answer is added to", at: addedTo, want: exitClean},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			e := edges{
+				event: func() ([]byte, error) { return event("Closes #58."), nil },
+				git: gitSayingWithBlobs(
+					"M\x00"+path+"\x00",
+					cleanLog,
+					"2\t2\t"+path+"\x00",
+					map[string]string{
+						base + ":" + path: theLandedRecord,
+						head + ":" + path: tc.at,
+					}, nil),
+			}
+
+			var out, errOut bytes.Buffer
+			if got := run(&out, &errOut, e); got != tc.want {
+				t.Fatalf("returned %d, want %d: %s %s", got, tc.want, out.String(), errOut.String())
+			}
+			if !strings.Contains(out.String(), "records: 1, 1 of them already on the branch this lands on") {
+				t.Errorf("the report does not say what it read:\n%s", out.String())
+			}
+		})
 	}
 }
