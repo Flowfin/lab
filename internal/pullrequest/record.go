@@ -35,6 +35,30 @@ import (
 // correction is added underneath, saying what was wrong and how it was found.
 const AnswerAlreadyLandedWasRewritten = "answer-already-landed-was-rewritten"
 
+// QuestionAlreadyAskedWasRewritten refuses a change that removes or alters a
+// line of the question section of a record that was already on the branch this
+// change lands on.
+//
+// An experiment states its question before it starts, and the whole value of
+// that sentence is the ordering: a question written before the work is a
+// question the result cannot have been chosen to fit. Nothing held the question
+// to that ordering after the commit that wrote it. It was checked for being
+// non-empty on the day it landed and for nothing at all afterwards.
+//
+// The failure needs no bad faith and it is the most likely dishonest edit here,
+// because it is the one that makes a record read better rather than worse. An
+// experiment asked whether one approach was faster than another. The
+// measurement came back saying something adjacent and more interesting. Editing
+// the question to name what was measured turns a result nobody predicted into a
+// result the record claims was the point, and every other check stays green
+// through it. The edit arrives in the same pull request as the answer, which is
+// the change a reader is reading for something else.
+//
+// Where the question turned out to be the wrong question, that is itself an
+// answer and the lifecycle already names it: the answer section says so, the
+// question stays as it was asked, and the record is finished rather than tidied.
+const QuestionAlreadyAskedWasRewritten = "question-already-asked-was-rewritten"
+
 // A RecordChange is one experiment record at both ends of the range. It carries
 // bytes rather than a parsed record, because what parses at one end may not
 // parse at the other and that difference is itself something a rule reads.
@@ -57,28 +81,44 @@ type RecordChange struct {
 	AfterPresent bool
 }
 
-// judgeRecords holds every record in the change to the rule above.
+// judgeRecords holds every record in the change to the two rules above.
 //
-// TWO BOUNDARIES, WRITTEN HERE RATHER THAN DISCOVERED.
+// THE BOUNDARIES, WRITTEN HERE RATHER THAN DISCOVERED.
 //
-// A record whose state at the base of the range was not answered is not
-// covered. Writing an answer for the first time is the thing this board wants,
-// and a check that made the first draft permanent would teach people to commit
-// nothing until they were certain, which is how an experiment ends up with no
-// written answer at all. The same reasoning covers a record that did not exist
-// at the base.
+// A record that did not exist at the base of the range is not covered, and
+// neither is a section that was not there. Writing the question for the first
+// time is the thing this board wants most, and writing an answer for the first
+// time is the second; a check that made a first draft permanent would teach
+// people to commit nothing until they were sure, which is how an experiment
+// ends up with nothing written down at all. The answer rule adds one more
+// condition, at the rule itself, because a draft answer under a record that is
+// still asking is the same case one step further on.
 //
-// Nothing here judges whether an added correction is honest. A correction that
-// contradicts the original without saying so passes this. What the check buys is
-// that the original is still there to be read next to it, which is the
-// difference between a record and a current opinion, and review is where the
+// Nothing here judges whether what was added is honest. A correction that
+// contradicts the original without saying so passes, and so does a clarification
+// that is a second question wearing a hat. What the rules buy is that the
+// original words are still on the page next to whatever arrived later, which is
+// the difference between a record and a current opinion, and review is where the
 // rest is caught.
+//
+// NOTHING REQUIRES AN ADDITION TO SAY THAT IT WAS ADDED LATER. Issue #70
+// describes a clarification as sitting under a line saying it arrived after the
+// work started, and record 0008 fixes no such line, so there is no marker in
+// the format for a check to read. A rule invented here would be a format
+// decision taken inside a checker, which is the shape the record for the
+// format would then have to be written around.
 func judgeRecords(change Change) Verdict {
 	if !change.RecordsRead {
-		return Verdict{Skips: []Skip{{
-			Rule: AnswerAlreadyLandedWasRewritten,
-			Why:  "this run was given no records, so no answer was compared against the one already landed",
-		}}}
+		return Verdict{Skips: []Skip{
+			{
+				Rule: AnswerAlreadyLandedWasRewritten,
+				Why:  "this run was given no records, so no answer was compared against the one already landed",
+			},
+			{
+				Rule: QuestionAlreadyAskedWasRewritten,
+				Why:  "this run was given no records, so no question was compared against the one the work began from",
+			},
+		}}
 	}
 
 	var verdict Verdict
@@ -95,39 +135,99 @@ func judgeOneRecord(record RecordChange) Verdict {
 
 	before, err := check.ParseRecord(record.Before)
 	if err != nil {
-		// Nothing can read a section out of bytes that are not a record. The
-		// state at the base decides whether this rule applies at all, so a
-		// base that cannot be read is a base this rule has nothing to say
-		// about, and the checker is what refuses a record that is not one.
+		// Nothing can read a section out of bytes that are not a record. What
+		// the record said at the base decides whether either rule applies at
+		// all, so a base that cannot be read is a base they have nothing to
+		// say about, and the checker is what refuses a record that is not one.
 		return Verdict{}
 	}
-	if state, present := before.Field(check.FieldState); !present || state != check.StateAnswered {
+	after, afterErr := check.ParseRecord(record.After)
+
+	var verdict Verdict
+	for _, rule := range sectionRules {
+		verdict.add(rule.judge(record, before, after, afterErr))
+	}
+	return verdict
+}
+
+// A sectionRule is one section of a record held to growing rather than
+// changing. The two rules differ in which section they read, in what makes a
+// record covered at the base, and in what the message tells the author to do
+// instead. Everything else is the same comparison, which is why it is one
+// function: two copies of it would drift, and the drift would be a rule that is
+// stricter about one section than about the other for no reason anybody wrote
+// down.
+type sectionRule struct {
+	property string
+	heading  string
+
+	// covered says whether the record at the base is one this rule applies
+	// to. It is the boundary each issue asks to be written at the check.
+	covered func(before check.Record) bool
+
+	// instead is what the refusal tells the author to do with the words they
+	// wanted to change.
+	instead string
+}
+
+var sectionRules = []sectionRule{
+	{
+		property: AnswerAlreadyLandedWasRewritten,
+		heading:  check.SectionAnswer,
+		// A record whose state at the base was not answered is not covered.
+		// Writing an answer for the first time is the thing this board wants,
+		// and a check that made the first draft permanent would teach people
+		// to commit nothing until they were certain, which is how an
+		// experiment ends up with no written answer at all.
+		covered: func(before check.Record) bool {
+			state, present := before.Field(check.FieldState)
+			return present && state == check.StateAnswered
+		},
+		instead: "an answer already landed may grow and may not change, so a correction goes underneath saying what was wrong and how it was found",
+	},
+	{
+		property: QuestionAlreadyAskedWasRewritten,
+		heading:  check.SectionQuestion,
+		// Every record that carried a question at the base is covered,
+		// whatever state it is in. The question is what the work began from,
+		// and it does not become editable because the work is unfinished.
+		covered: func(check.Record) bool { return true },
+		instead: "the question is what the work began from, so a clarification goes underneath rather than over the words the work started with",
+	},
+}
+
+// judge holds one section of one record to the rule.
+func (r sectionRule) judge(record RecordChange, before, after check.Record, afterErr error) Verdict {
+	landed, present := before.Section(r.heading)
+	if !present || !r.covered(before) {
 		return Verdict{}
 	}
-	landed, present := before.Section(check.SectionAnswer)
-	if !present {
+	// A section that was there and empty carries nothing to lose, and the
+	// rules that refuse an empty question and an answer claimed but not
+	// carried are the checker's. Reading it here would put a second judgement
+	// about emptiness in a rule about editing.
+	if len(meaningfulLines(landed)) == 0 {
 		return Verdict{}
 	}
 
-	after, err := check.ParseRecord(record.After)
-	if err != nil {
-		// The head no longer parses as a record, so the answer cannot be shown
-		// to be intact. It is refused here rather than passed to the checker,
+	if afterErr != nil {
+		// The head no longer parses as a record, so nothing can be shown to
+		// still be there. It is refused here rather than left to the checker,
 		// because the checker walks the tree and would report a record it
-		// cannot read without ever saying that an answer already landed went
-		// missing inside it.
+		// cannot read without ever saying that words already on the branch
+		// went missing inside it.
 		return Verdict{Refusals: []Refusal{{
-			Property: AnswerAlreadyLandedWasRewritten,
+			Property: r.property,
 			Subject:  record.Path,
-			Detail:   fmt.Sprintf("it was answered at the base of this range and no longer parses as a record, so its %s section cannot be shown to still carry what it carried", check.SectionAnswer),
+			Detail:   fmt.Sprintf("it no longer parses as a record, so its %s section cannot be shown to still carry what it carried at the base of this range", r.heading),
 		}}}
 	}
-	current, present := after.Section(check.SectionAnswer)
+	current, present := after.Section(r.heading)
 	if !present {
 		return Verdict{Refusals: []Refusal{{
-			Property: AnswerAlreadyLandedWasRewritten,
+			Property: r.property,
 			Subject:  record.Path,
-			Detail:   fmt.Sprintf("its %s section is gone and it carried an answer at the base of this range", check.SectionAnswer),
+			Detail:   fmt.Sprintf("its %s section is gone and it carried one at the base of this range", r.heading),
 		}}}
 	}
 
@@ -136,10 +236,9 @@ func judgeOneRecord(record RecordChange) Verdict {
 		return Verdict{}
 	}
 	return Verdict{Refusals: []Refusal{{
-		Property: AnswerAlreadyLandedWasRewritten,
+		Property: r.property,
 		Subject:  record.Path,
-		Detail: fmt.Sprintf("its %s section no longer carries %q, and an answer already landed may grow and may not change, so a correction goes underneath saying what was wrong and how it was found",
-			check.SectionAnswer, shorten(missing)),
+		Detail:   fmt.Sprintf("its %s section no longer carries %q, and %s", r.heading, shorten(missing), r.instead),
 	}}}
 }
 
