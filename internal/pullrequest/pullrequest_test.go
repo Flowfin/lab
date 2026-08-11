@@ -289,6 +289,7 @@ func judgeCases() []judgeCase {
 				CommitMessageNamesNoIssue,
 				ExperimentChangedWithoutItsRecord,
 				AnswerAlreadyLandedWasRewritten,
+				QuestionAlreadyAskedWasRewritten,
 				ChangeIsLargerThanOneReading,
 			},
 		},
@@ -309,6 +310,7 @@ func TestEveryPropertyHasACaseThatRefusesIt(t *testing.T) {
 		CommitMessageNamesNoIssue,
 		ExperimentChangedWithoutItsRecord,
 		AnswerAlreadyLandedWasRewritten,
+		QuestionAlreadyAskedWasRewritten,
 	}
 
 	refused := make(map[string]bool)
