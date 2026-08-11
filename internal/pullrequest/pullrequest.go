@@ -26,6 +26,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode"
 )
 
 // ExperimentsDir and RecordName are where an experiment and its record live.
@@ -135,9 +136,43 @@ const ChangeIsLargerThanOneReading = "change-is-larger-than-one-reading"
 // usually is instead is a colour.
 var issueReference = regexp.MustCompile(`(^|[^A-Za-z0-9_])(?:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)?#[1-9][0-9]*`)
 
-// issueURL matches the same reference written as a link, which is what a body
-// composed in a browser usually carries.
-var issueURL = regexp.MustCompile(`https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(?:issues|pull)/[1-9][0-9]*`)
+// The same reference written as a link, which is what a body composed in a
+// browser usually carries.
+//
+// THE HOST IS COMPARED AND NOT MATCHED, and the pattern below holds the path
+// only. A regular expression carrying a host name matches anywhere in a string
+// unless it is anchored, so a link to somewhere else that happens to carry this
+// host inside its own path would satisfy the rule, and the reader who followed
+// it would arrive somewhere nobody meant. Comparing the beginning of a field
+// against a fixed string cannot do that, and the pattern that is left is
+// anchored at the front and has no host in it at all.
+const issueLinkHost = "https://github.com/"
+
+var issueLinkPath = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(?:issues|pull)/[1-9][0-9]*`)
+
+// namesAnIssueLink says whether a text carries a link to an issue.
+//
+// The text is cut into fields at whitespace and at the characters prose wraps a
+// link in, because a link inside brackets or followed by a full stop is a link
+// somebody wrote and a check that missed it would be met by a body that
+// references its issue perfectly well.
+func namesAnIssueLink(text string) bool {
+	for _, field := range strings.FieldsFunc(text, isLinkDelimiter) {
+		rest, found := strings.CutPrefix(field, issueLinkHost)
+		if !found {
+			continue
+		}
+		if issueLinkPath.MatchString(rest) {
+			return true
+		}
+	}
+	return false
+}
+
+// isLinkDelimiter says whether a rune ends a link written inside prose.
+func isLinkDelimiter(r rune) bool {
+	return unicode.IsSpace(r) || strings.ContainsRune("()<>[]{}\"'`,", r)
+}
 
 // NamesAnIssue says whether a text references an issue.
 //
@@ -149,7 +184,7 @@ var issueURL = regexp.MustCompile(`https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-
 // all, which is the case it exists for and the only one this can separate from
 // the rest.
 func NamesAnIssue(text string) bool {
-	return issueReference.MatchString(text) || issueURL.MatchString(text)
+	return issueReference.MatchString(text) || namesAnIssueLink(text)
 }
 
 // A File is one path the change touched. The path is repository-relative and

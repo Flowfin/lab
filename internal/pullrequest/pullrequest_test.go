@@ -109,6 +109,26 @@ func judgeCases() []judgeCase {
 			}(),
 		},
 		{
+			name: "a body whose link carries this host inside somebody else's path",
+			change: func() Change {
+				c := clean()
+				c.Body = "See https://example.invalid/https://github.com/Flowfin/lab/issues/24 for the details."
+				return c
+			}(),
+			// The near miss the link rule exists in this shape for. A reader
+			// following it arrives somewhere nobody meant, and a pattern
+			// carrying the host rather than comparing it would pass this.
+			want: []string{BodyNamesNoIssue},
+		},
+		{
+			name: "a body whose link is wrapped in brackets and ends in a full stop",
+			change: func() Change {
+				c := clean()
+				c.Body = "The argument is there (https://github.com/Flowfin/lab/issues/24)."
+				return c
+			}(),
+		},
+		{
 			name: "a body whose reference names the repository",
 			change: func() Change {
 				c := clean()
