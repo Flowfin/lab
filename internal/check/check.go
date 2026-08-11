@@ -462,6 +462,14 @@ func walkExperiments(root string, res *Result) error {
 		res.Refusals = append(res.Refusals, refuseHeaderDates(record, data)...)
 		res.Refusals = append(res.Refusals, refuseDates(record, data, res.Now)...)
 		res.Refusals = append(res.Refusals, refusePromotion(record, data)...)
+		// The only rule here that reads the directory as well as the record,
+		// which is why it takes both and why it can fail: the others judge
+		// bytes already in hand and this one walks.
+		hardwareRefusals, err := refuseHardware(experiment, record, data)
+		if err != nil {
+			return err
+		}
+		res.Refusals = append(res.Refusals, hardwareRefusals...)
 		if parsed, err := ParseRecord(data); err == nil {
 			seen.slug, seen.declaresSlug = parsed.Field(FieldSlug)
 		}

@@ -115,11 +115,33 @@ func TestTheListingReadsWhatItCanAndSaysWhatItCannot(t *testing.T) {
 	}
 }
 
-// TestTheReportPrintsTheFourColumns compares the whole report against the
+// TestTheHardwareColumnKeepsSilenceApartFromAClaim is the half of the column
+// that is easy to lose. A record written before the field existed declares
+// nothing, and a record saying none declares something a tree can contradict.
+// Printing both as an empty cell, or both as none, would report a silence as a
+// claim, which is the one thing this column must not do.
+func TestTheHardwareColumnKeepsSilenceApartFromAClaim(t *testing.T) {
+	want := map[string]string{
+		"oldest-question":  "a spinning disk",
+		"newer-question":   HardwareNone,
+		"already-answered": hardwareNotDeclared,
+		"given-up":         hardwareNotDeclared,
+		"no-header":        stateUnreadable,
+		"no-record-at-all": stateNoRecord,
+	}
+
+	for _, entry := range read(t, "several-experiments").Entries {
+		if entry.NeedsHardware != want[entry.Slug] {
+			t.Errorf("%s declares %q, want %q", entry.Slug, entry.NeedsHardware, want[entry.Slug])
+		}
+	}
+}
+
+// TestTheReportPrintsEveryColumn compares the whole report against the
 // output stored beside the tree. Comparing the whole thing is what makes it
 // mean something: an assertion that a slug appears somewhere would pass on a
 // listing whose columns had silently swapped.
-func TestTheReportPrintsTheFourColumns(t *testing.T) {
+func TestTheReportPrintsEveryColumn(t *testing.T) {
 	name := "several-experiments"
 	got := read(t, name).Report(listingNow)
 

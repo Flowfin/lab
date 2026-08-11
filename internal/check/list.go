@@ -22,6 +22,13 @@ const (
 	stateNotWritten = "not written"
 )
 
+// What the hardware column says about a record that carries no such field.
+// Record 0013 makes the field optional and record 0015 adds it, so a record
+// written before it declares nothing, and "not declared" is a different
+// statement from "none". Collapsing the two would let the listing report a
+// silence as a claim.
+const hardwareNotDeclared = "not declared"
+
 // An Entry is one experiment as the listing reads it. Nothing here is refused
 // and nothing is judged. Where a field cannot be read, the column says so.
 type Entry struct {
@@ -43,6 +50,13 @@ type Entry struct {
 
 	// Dated says whether Written was read from a date.
 	Dated bool
+
+	// NeedsHardware is the Needs-Hardware field as it was written, or one of
+	// the strings above where there is none to print. It is shown rather than
+	// judged: a declaration the directory contradicts is a refusal the
+	// checker produces, and repeating that judgement here would put a verdict
+	// in a report.
+	NeedsHardware string
 }
 
 // Waiting is how long an experiment has been asking, in whole days, and
@@ -173,7 +187,7 @@ func List(root string, now time.Time) (Listing, error) {
 // that stops at the first unreadable record tells a reader nothing about the
 // rest of the tree.
 func readEntry(dir, slug string) Entry {
-	entry := Entry{Slug: slug, State: stateNoRecord, QuestionWritten: stateNoRecord}
+	entry := Entry{Slug: slug, State: stateNoRecord, QuestionWritten: stateNoRecord, NeedsHardware: stateNoRecord}
 
 	data, err := os.ReadFile(filepath.Join(dir, RecordName))
 	if err != nil {
@@ -183,7 +197,16 @@ func readEntry(dir, slug string) Entry {
 	if err != nil {
 		entry.State = stateUnreadable
 		entry.QuestionWritten = stateUnreadable
+		entry.NeedsHardware = stateUnreadable
 		return entry
+	}
+
+	entry.NeedsHardware = hardwareNotDeclared
+	if needs, present := record.Field(FieldNeedsHardware); present {
+		entry.NeedsHardware = needs
+		if strings.TrimSpace(needs) == "" {
+			entry.NeedsHardware = stateNotWritten
+		}
 	}
 
 	entry.State = stateNotWritten
@@ -222,10 +245,16 @@ func asking(e Entry) bool { return e.State == StateAsking }
 // it found before printing any of them, so a run that found none is a sentence
 // rather than an empty screen a reader has to interpret.
 //
-// The columns are the four the verb exists for: the slug, the state, the date
-// the question was written, and how long anything still asking has been there.
-// Nothing else, because a listing wide enough to wrap stops being scannable and
-// scanning it is the whole point.
+// The columns are the ones the verb exists for: the slug, the state, the date
+// the question was written, how long anything still asking has been there, and
+// what the record says it needs beyond the runner. Nothing else, because a
+// listing wide enough to wrap stops being scannable and scanning it is the
+// whole point.
+//
+// The last column is here because the reader this verb is written for is
+// deciding what to do about an experiment, and whether they could reproduce it
+// on the machine in front of them is part of that. Record 0015 adds the field
+// and this prints what it says without judging it.
 func (l Listing) Report(now time.Time) string {
 	out := fmt.Sprintf("examined %s\n", l.Root)
 	if !l.ExperimentsPresent {
@@ -237,16 +266,16 @@ func (l Listing) Report(now time.Time) string {
 		return out
 	}
 
-	rows := [][4]string{{"slug", "state", "question written", "waiting"}}
+	rows := [][5]string{{"slug", "state", "question written", "waiting", "needs"}}
 	for _, entry := range l.Entries {
 		waiting := "-"
 		if days, counted := entry.Waiting(now); counted {
 			waiting = fmt.Sprintf("%d %s", days, plural(days, "day", "days"))
 		}
-		rows = append(rows, [4]string{entry.Slug, entry.State, entry.QuestionWritten, waiting})
+		rows = append(rows, [5]string{entry.Slug, entry.State, entry.QuestionWritten, waiting, entry.NeedsHardware})
 	}
 
-	var width [4]int
+	var width [5]int
 	for _, row := range rows {
 		for i, cell := range row {
 			if len(cell) > width[i] {

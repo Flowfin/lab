@@ -25,10 +25,19 @@ func TestTheTemplateParses(t *testing.T) {
 		t.Fatalf("the template does not parse: %v", err)
 	}
 
-	for _, name := range []string{FieldSlug, FieldState, FieldQuestionWritten} {
+	for _, name := range []string{FieldSlug, FieldState, FieldQuestionWritten, FieldNeedsHardware} {
 		if _, present := rec.Field(name); !present {
 			t.Errorf("the template carries no %s field", name)
 		}
+	}
+
+	// The template carries the hardware declaration filled in rather than
+	// blank. Record 0013 keeps the field optional forever, so the template is
+	// the only thing that makes it usual, and a template shipping it empty
+	// would teach every new record to trip the refusal over an empty
+	// declaration on its first commit.
+	if needs, _ := rec.Field(FieldNeedsHardware); needs != HardwareNone {
+		t.Errorf("the template declares %s: %q, want %q", FieldNeedsHardware, needs, HardwareNone)
 	}
 
 	// Answer-Written is absent on purpose. A template that carried it would
