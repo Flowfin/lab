@@ -151,6 +151,13 @@ func readChange(event pullrequest.Event, git func(args ...string) ([]byte, error
 	change.Commits = commits
 	change.CommitsRead = true
 
+	records, err := readRecords(event, git, files)
+	if err != nil {
+		return change, err
+	}
+	change.Records = records
+	change.RecordsRead = true
+
 	out, err = git("diff", "--numstat", "-z", span)
 	if err != nil {
 		return change, err
@@ -164,6 +171,67 @@ func readChange(event pullrequest.Event, git func(args ...string) ([]byte, error
 	change.LinesCounted = true
 
 	return change, nil
+}
+
+// readRecords reads every experiment record the change touched, at both ends of
+// the range.
+//
+// It reads them out of git rather than off the disk. What is checked out on a
+// pull request is a merge of the two ends rather than either of them, so a file
+// read from the working tree is a third thing, and a rule about what a change
+// did to a record cannot be made against it.
+//
+// Presence is asked before the bytes are. A record this change creates has no
+// version at the base, and a command that read a missing path as a failure
+// would report the change this board wants most as a run that could not be
+// made.
+func readRecords(event pullrequest.Event, git func(args ...string) ([]byte, error), files []pullrequest.File) ([]pullrequest.RecordChange, error) {
+	seen := make(map[string]bool)
+	var records []pullrequest.RecordChange
+
+	for _, file := range files {
+		if !pullrequest.IsRecordPath(file.Path) || seen[file.Path] {
+			continue
+		}
+		seen[file.Path] = true
+
+		record := pullrequest.RecordChange{Path: file.Path}
+		for _, end := range []struct {
+			rev     string
+			bytes   *[]byte
+			present *bool
+		}{
+			{event.Base, &record.Before, &record.BeforePresent},
+			{event.Head, &record.After, &record.AfterPresent},
+		} {
+			present, err := pathIsAt(git, end.rev, file.Path)
+			if err != nil {
+				return nil, err
+			}
+			*end.present = present
+			if !present {
+				continue
+			}
+			data, err := git("show", end.rev+":"+file.Path)
+			if err != nil {
+				return nil, err
+			}
+			*end.bytes = data
+		}
+		records = append(records, record)
+	}
+	return records, nil
+}
+
+// pathIsAt says whether a path is in the tree at a revision. It asks a question
+// git answers with an empty list rather than with a failure, so a missing path
+// and a broken invocation stay different outcomes.
+func pathIsAt(git func(args ...string) ([]byte, error), rev, path string) (bool, error) {
+	out, err := git("ls-tree", "-z", "--name-only", rev, "--", path)
+	if err != nil {
+		return false, err
+	}
+	return len(strings.TrimSpace(string(out))) > 0, nil
 }
 
 // looksLikeAnObjectName says whether a string is the shape git prints for a
