@@ -460,6 +460,7 @@ func walkExperiments(root string, res *Result) error {
 		res.Refusals = append(res.Refusals, refuseQuestion(record, data)...)
 		res.Refusals = append(res.Refusals, refuseState(record, data)...)
 		res.Refusals = append(res.Refusals, refuseHeaderDates(record, data)...)
+		res.Refusals = append(res.Refusals, refuseMeasurementCommit(record, data)...)
 		res.Refusals = append(res.Refusals, refuseDates(record, data, res.Now)...)
 		res.Refusals = append(res.Refusals, refusePromotion(record, data)...)
 		// The only rule here that reads the directory as well as the record,
