@@ -12,11 +12,21 @@ difference is meant to be visible.
 Run these, in this order, from the root of a checkout:
 
 ```
-go build ./...
-go vet ./...
-gofmt -l .
-go test -count=1 -v ./...
+go build ./cmd/... ./internal/...
+go vet ./cmd/... ./internal/...
+gofmt -l cmd internal
+go test -count=1 -v ./cmd/... ./internal/...
 ```
+
+Every one of them names the runner rather than the whole module, and an
+experiment's code is outside all four. That is
+[docs/decisions/0017-what-the-gate-reads-of-an-experiment.md](docs/decisions/0017-what-the-gate-reads-of-an-experiment.md),
+which supplies the mechanism record
+[docs/decisions/0009-the-checks-do-not-run-experiment-code.md](docs/decisions/0009-the-checks-do-not-run-experiment-code.md)
+decided the property for. A prototype you abandon half-written is a thing this
+board takes, and it holds nothing red. What follows from that is that nothing
+compiles your experiment for you: run it yourself, from a checkout, at the
+moment you want the answer.
 
 `gofmt -l` prints the files it would change and exits zero either way, so read
 its output rather than its exit code. No output is the passing result.

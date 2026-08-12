@@ -71,7 +71,19 @@ jobs:
         uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4
         with:
           languages: go
-          build-mode: autobuild
+          # Manual rather than autobuild, because autobuild builds the module
+          # and the module holds the experiments as well. The subject of this
+          # workflow is the runner's own source, which is the first line of this
+          # file, and under autobuild that sentence was not true of what ran.
+          # Record 0017 is where the pattern below is fixed.
+          build-mode: manual
+
+      - name: Build the runner
+        # The same two roots the build workflow, the suite and the guide name.
+        # A finding is reported against what this step compiled, so widening it
+        # would put an abandoned prototype in the code-scanning tab under the
+        # runner's name.
+        run: go build ./cmd/... ./internal/...
 
       - name: Analyse
         uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4

@@ -94,14 +94,17 @@ jobs:
           done
 
       - name: Run the default suite
-        # The same default run, with no opt-in and no reduced set. The count is
+        # The same default run, with no opt-in and no reduced set. The pattern
+        # is the runner's two roots, which is what the default run is: record
+        # 0017 keeps an experiment's code out of every command, and this job
+        # runs the same string the build workflow and the guide do. The count is
         # what separates a suite that ran everything and passed from one that
         # executed nothing and reported success, which look identical from
         # outside. Top-level results are counted: a subtest's line is indented,
         # so the anchored pattern does not read it twice.
         run: |
           set -euo pipefail
-          go test -count=1 -v ./... 2>&1 | tee suite.log
+          go test -count=1 -v ./cmd/... ./internal/... 2>&1 | tee suite.log
           executed=$(grep -cE '^--- (PASS|FAIL): ' suite.log || true)
           skipped=$(grep -cE '^--- SKIP: ' suite.log || true)
           echo "with no display and no elevation: executed ${executed} test(s), skipped ${skipped}"
