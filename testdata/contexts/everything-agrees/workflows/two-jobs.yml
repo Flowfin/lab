@@ -1,0 +1,20 @@
+name: Two jobs
+
+on:
+  pull_request:
+
+permissions: {}
+
+jobs:
+  first:
+    name: the first check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Do the first thing
+        run: echo first
+  second:
+    name: the second check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Do the second thing
+        run: echo second
