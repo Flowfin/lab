@@ -10,6 +10,14 @@ day the question below was written, as `YYYY-MM-DD`, and it does not move
 afterwards, because the listing sorts by it. Add `Answer-Written` in the same
 change that writes the answer.
 
+Add `Measurement-Commit` in that same change where the answer quotes a
+measurement, with the object name of the commit the measurement was produced at,
+written in full. It is neither here nor in `Answer-Written`'s position because a
+template that ships a field filled in teaches every new record to declare a
+value it does not have yet. The code the measurement ran against may be removed
+later, and without this the answer keeps its numbers and loses the thing that
+produced them while still reading as complete.
+
 `Needs-Hardware` is what this experiment needs beyond the runner, in words
 somebody deciding whether to reproduce it can act on, or `none`. It starts at
 `none` here because that is the right answer for almost every experiment. A test
@@ -19,8 +27,9 @@ under `internal/hardware`, in a file whose name ends
 directory says the other is refused.
 
 The format is `docs/decisions/0008-the-experiment-record.md`, as added to by
-`docs/decisions/0015-an-experiment-declares-the-harness-it-needs.md`. This file
-is a convenience and those records are the authority.
+`docs/decisions/0015-an-experiment-declares-the-harness-it-needs.md` and by
+`docs/decisions/0016-an-answer-names-the-commit-it-measured.md`. This file is a
+convenience and those records are the authority.
 
 ## Question
 
