@@ -116,6 +116,14 @@ const (
 	// this for experiment records; this is the same rule over the documents a
 	// visitor reads first, which is where a dead pointer does the most damage.
 	DocumentNamesAPathThatDoesNotResolve = "document-names-a-path-that-does-not-resolve"
+
+	// ExitCodeDeclarationsDisagree refuses a tree whose exit-code constants do
+	// not say one thing. Record 0011 fixes four numbers and their meanings, and
+	// the tree declares them in more than one place because a code lives next
+	// to the thing that can return it. Each declaration is right about itself
+	// and nothing held them to each other, so a number that moved in one of
+	// them compiled and stayed green in the package it moved in.
+	ExitCodeDeclarationsDisagree = "exit-code-declarations-disagree"
 )
 
 // A Refusal is one rule refusing one subject. It carries the subject separately
@@ -223,6 +231,10 @@ func Scan(root, declaredLicence string) (Report, error) {
 	rep.Refusals = append(rep.Refusals, refusals...)
 
 	leg, refusals = pathsLeg(root, texts)
+	rep.Legs = append(rep.Legs, leg)
+	rep.Refusals = append(rep.Refusals, refusals...)
+
+	leg, refusals = exitCodesLeg(texts)
 	rep.Legs = append(rep.Legs, leg)
 	rep.Refusals = append(rep.Refusals, refusals...)
 

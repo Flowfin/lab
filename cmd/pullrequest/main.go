@@ -30,6 +30,15 @@ import (
 // they are written here with the record named rather than invented. The
 // integration-hardware harness declares its own code where its producer is, and
 // this follows that shape: a code lives next to the thing that can return it.
+//
+// WHAT HOLDS THIS DECLARATION TO THE OTHERS. The exit-code leg in
+// internal/invariants reads every exit-code constant in the tree and refuses a
+// code declared with two numbers, or a number declared under two codes. Without
+// it these three numbers being the same as the runner's is a thing a reader
+// checked once, and a number that moved here would compile, pass this package's
+// own tests and change the meaning of anything keyed on it. It finds a
+// declaration by the shape of its name, so keep the convention these three
+// follow.
 const (
 	// exitClean means the run completed and refused nothing. It does not mean
 	// the pull request is good, only that nothing this check judges was found

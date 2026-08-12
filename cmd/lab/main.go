@@ -22,6 +22,16 @@ import (
 // harness and is declared where its producer is, in internal/hardware. Record
 // 0011 refuses a code written into the runner as a branch nothing can reach,
 // and that is what one here would be.
+//
+// WHAT HOLDS THIS DECLARATION TO THE OTHERS. Keeping a code beside its producer
+// means the contract is written down in more than one place, and each place was
+// right about itself while nothing was right about all of them together. The
+// exit-code leg in internal/invariants reads every declaration in the tree and
+// refuses a code declared with two numbers, or a number declared under two
+// codes, so a number that moves here is red in the default suite rather than
+// green in this package. It finds a declaration by the shape of its name, so a
+// code named something that does not read like one is invisible to it: keep the
+// convention these three follow.
 const (
 	// exitClean means the run completed and refused nothing. It does not
 	// mean the tree is good, only that nothing this runner judges was found

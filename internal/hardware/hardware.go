@@ -42,6 +42,15 @@ const Name = "integration-hardware"
 // returns. It lives here rather than beside those three because this is where
 // its producer is, and that record refuses a code written into the runner as a
 // branch nothing can reach.
+//
+// WHAT HOLDS THIS DECLARATION TO THE OTHERS. The exit-code leg in
+// internal/invariants reads every exit-code constant in the tree and refuses a
+// number declared under two codes, which is the direction that reaches this
+// one: it is declared exactly once, so there is no second copy of it for
+// anything to compare against, and what can go wrong is this number colliding
+// with a meaning one of the runner's three already has. It finds a declaration
+// by the shape of its name, so keep the convention this one and those three
+// follow.
 const ExitAskedAndDeliveredNothing = 3
 
 // BuildTag is the constraint its tests are behind. The default run does not
