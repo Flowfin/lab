@@ -85,10 +85,15 @@ jobs:
           cache: false
 
       - name: Build for ${{ matrix.goos }}/${{ matrix.goarch }}
+        # The two roots are the runner and nothing else. An experiment's code is
+        # in this module and is deliberately outside this pattern, which is
+        # record 0017 supplying the mechanism record 0009 decided the property
+        # for. Widening this back to ./... puts a prototype somebody abandoned
+        # half-written in front of six platforms it was never about.
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-        run: go build ./...
+        run: go build ./cmd/... ./internal/...
 
   test:
     # One entry per platform record 0012 says the release ships a binary for and
@@ -166,9 +171,11 @@ jobs:
           fi
 
       - name: Run the default suite
-        # The same suite on every entry. No platform gets a reduced set and no
-        # package is excluded here, because the platform whose difficult tests
-        # are left out is the platform the defect is on.
+        # The same suite on every entry. No platform gets a reduced set, because
+        # the platform whose difficult tests are left out is the platform the
+        # defect is on. The pattern is the runner's two roots on all three, and
+        # what it leaves out is an experiment's code rather than any of the
+        # runner's, which is record 0017.
         #
         # -count=1 rather than the cache, so a green entry is a suite that ran
         # on this machine rather than one whose stored output was replayed.
@@ -185,7 +192,7 @@ jobs:
           PLATFORM: ${{ matrix.platform }}
         run: |
           set -euo pipefail
-          go test -count=1 -v ./... 2>&1 | tee suite.log
+          go test -count=1 -v ./cmd/... ./internal/... 2>&1 | tee suite.log
           executed=$(grep -cE '^--- (PASS|FAIL): ' suite.log || true)
           skipped=$(grep -cE '^--- SKIP: ' suite.log || true)
           echo "${PLATFORM}: executed ${executed} test(s), skipped ${skipped}"
@@ -227,7 +234,10 @@ jobs:
           cache: false
 
       - name: Vet the runner
-        run: go vet ./...
+        # The step name and the pattern say the same thing now. Record 0017
+        # keeps an experiment's code out of every command here, and vet is one
+        # of them.
+        run: go vet ./cmd/... ./internal/...
 
   format:
     name: format
@@ -252,12 +262,19 @@ jobs:
         # so the job has to read the output to fail. Printing the names first
         # means a red run says which files rather than only that some file was
         # wrong.
+        #
+        # gofmt takes directories rather than a package pattern, so the two
+        # roots are spelled the way it reads them. This is the one command here
+        # that would fail on an experiment without compiling it: gofmt exits
+        # non-zero on a file it cannot parse, and half-written is the ordinary
+        # state of a prototype somebody abandoned. Record 0017 is where that is
+        # argued.
         run: |
           set -euo pipefail
-          unformatted=$(gofmt -l .)
+          unformatted=$(gofmt -l cmd internal)
           if [ -n "$unformatted" ]; then
             echo "$unformatted"
-            echo "::error::These files are not gofmt-formatted. Run 'gofmt -w .'."
+            echo "::error::These files are not gofmt-formatted. Run 'gofmt -w cmd internal'."
             exit 1
           fi
-          echo "Every Go file in this tree is gofmt-formatted."
+          echo "Every Go file the runner is built from is gofmt-formatted."
