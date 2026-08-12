@@ -1,0 +1,108 @@
+# The gate refers to check names, and this is what holds the two together.
+#
+# A required context is a string. A check name is a string in a workflow file.
+# Nothing on the platform ties them, so a job renamed in passing removes itself
+# from the required set while the tab still looks green, and a context required
+# under a name nothing reports blocks every merge without saying why on the pull
+# request. Both are failures of the same disagreement and this job refuses both.
+#
+# WHY THIS IS A WORKFLOW AND NOT A VERB OF THE RUNNER. Half the comparison is a
+# live setting on the hosting platform rather than a file in the tree, so it can
+# only be answered by asking the API. lab reads a checkout and opens no network
+# connection, and that claim is repeated in every document here, so the fetch
+# lives in the step below and the judgement lives in a command that is handed the
+# answer on standard input. The token is granted on this one job and nowhere
+# else, read-only, because reading a ruleset is all it is for.
+#
+# The check name below is what the required set refers to later, so it is written
+# here rather than left to the job id, and changing it is a change to the gate
+# rather than tidying. This job is the one place where that has a consequence it
+# can see: its own name is in the deliberate-absence list in
+# internal/contexts/contexts.go, so renaming it without moving that entry reddens
+# this check and the ordinary suite together.
+#
+# Hardened the way every other workflow in this tree is, because the audit job in
+# zizmor.yml refuses a new one that departs from it: permissions denied at the
+# top and granted per job, every action pinned to a commit with its version in a
+# comment, checkout without persisted credentials, and nothing expanded into a
+# run block.
+name: Required contexts
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+# Explicit deny-all at workflow level; the job below grants only what it needs.
+permissions: {}
+
+# Cancel a superseded run on the same ref. Nothing here publishes, so a run that
+# has been overtaken is safe to drop.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contexts:
+    name: required contexts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # Read the tree, and read the ruleset. Both are reads and there is no
+      # third thing this job does.
+      contents: read
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # The toolchain comes from go.mod, so the version this job uses moves
+          # when the module says so and never separately.
+          go-version-file: go.mod
+          # This module has no dependencies and therefore no go.sum for a cache
+          # key to be built from. Asking for a cache anyway makes the step
+          # depend on a file that is not there.
+          cache: false
+
+      - name: Read the contexts the ruleset requires
+        # The fetch is its own step so that a ruleset the run could not read is
+        # a different outcome from a ruleset that disagrees with the tree. A
+        # failed fetch here stops the job, and a job that had piped a failed
+        # fetch into the comparison would have compared the tree against an
+        # empty list and reported whatever that produced.
+        #
+        # An empty answer is not a failure. The ruleset on this board requires
+        # no status check today, and the comparison still has work to do in
+        # that state, which is why the count is printed rather than the run
+        # stopping.
+        #
+        # Every value reaches the script through the environment. Nothing an
+        # author controls is part of a command, and no expression is expanded
+        # inside a run block.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          if ! gh api "repos/${REPOSITORY}/rules/branches/${DEFAULT_BRANCH}" \
+                --jq '.[] | select(.type=="required_status_checks")
+                      | .parameters.required_status_checks[].context' > required.txt; then
+            echo "::error::The ruleset on ${DEFAULT_BRANCH} could not be read, so this run could not judge whether the gate and the tree agree. That is not the same as them agreeing."
+            exit 1
+          fi
+          echo "the ruleset on ${DEFAULT_BRANCH} requires $(wc -l < required.txt) context(s):"
+          cat required.txt
+
+      - name: Compare them against the check names this tree declares
+        # Built from this commit rather than downloaded, so a change that breaks
+        # a refusal is caught by the pull request that made it. The exit codes
+        # are the contract in docs/decisions/0011-the-exit-codes.md: 0 refused
+        # nothing, 1 refused something, 2 could not do the job. This step keys on
+        # all three by letting the command's own code become the job's.
+        run: go run ./cmd/contexts < required.txt

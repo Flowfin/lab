@@ -1,0 +1,14 @@
+name: A name with nothing behind it
+
+on:
+  pull_request:
+
+permissions: {}
+
+jobs:
+  build:
+    name: build (${{ matrix.goos }})
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build
+        run: echo build

@@ -1,0 +1,22 @@
+name: A matrix
+
+on:
+  pull_request:
+
+permissions: {}
+
+jobs:
+  build:
+    name: build (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+    steps:
+      - name: Build
+        run: echo build
