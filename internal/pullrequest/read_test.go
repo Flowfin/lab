@@ -60,7 +60,7 @@ func TestParseFiles(t *testing.T) {
 			out:  "R100\x00experiments/one/measure.go\x00experiments/two/measure.go\x00",
 			want: []File{
 				{Path: "experiments/one/measure.go", Gone: true},
-				{Path: "experiments/two/measure.go"},
+				{Path: "experiments/two/measure.go", From: "experiments/one/measure.go"},
 			},
 		},
 		{

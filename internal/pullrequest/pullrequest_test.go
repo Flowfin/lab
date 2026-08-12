@@ -79,7 +79,7 @@ func TestJudge(t *testing.T) {
 // to the rule they are about, and they are returned into this table rather than
 // run from a second harness.
 func judgeCases() []judgeCase {
-	return append(recordJudgeCases(), []judgeCase{
+	return append(append(recordJudgeCases(), removalJudgeCases()...), []judgeCase{
 		{
 			name:   "a change that names its issue and touches no experiment",
 			change: clean(),
@@ -290,6 +290,8 @@ func judgeCases() []judgeCase {
 				ExperimentChangedWithoutItsRecord,
 				AnswerAlreadyLandedWasRewritten,
 				QuestionAlreadyAskedWasRewritten,
+				RecordAlreadyLandedWasRemoved,
+				ExperimentAlreadyLandedWasRenamed,
 				ChangeIsLargerThanOneReading,
 			},
 		},
@@ -311,6 +313,8 @@ func TestEveryPropertyHasACaseThatRefusesIt(t *testing.T) {
 		ExperimentChangedWithoutItsRecord,
 		AnswerAlreadyLandedWasRewritten,
 		QuestionAlreadyAskedWasRewritten,
+		RecordAlreadyLandedWasRemoved,
+		ExperimentAlreadyLandedWasRenamed,
 	}
 
 	refused := make(map[string]bool)
