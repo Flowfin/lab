@@ -138,7 +138,12 @@ func readChange(event pullrequest.Event, git func(args ...string) ([]byte, error
 	// commit landing on the base is not this pull request's change.
 	span := event.Base + "..." + event.Head
 
-	out, err := git("diff", "--name-status", "-z", span)
+	// Rename detection is asked for rather than relied on. git turns it on by
+	// default, so leaving it out reads the same on almost every machine and
+	// differently on one that set diff.renames off, and the rule over a
+	// renamed experiment would then refuse a move as a removal for a reason
+	// living in somebody's git config.
+	out, err := git("diff", "--name-status", "--find-renames", "-z", span)
 	if err != nil {
 		return change, err
 	}

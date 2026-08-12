@@ -200,6 +200,15 @@ type File struct {
 	// record rule treats a removal as touching the experiment, for the reason
 	// written at that property.
 	Gone bool
+
+	// From is where this file was moved from, and it is empty on every file
+	// that was not moved. git reports a rename as one entry carrying two
+	// paths, and the pairing between them is the whole of what the entry adds
+	// over a removal beside an addition. Dropping it costs the rule over a
+	// renamed experiment the second path its refusal has to name, and a
+	// refusal that names only where a record used to be sends the reader
+	// looking for where it went.
+	From string
 }
 
 // A Commit is one commit in the range, as much of it as any rule here reads.
@@ -349,6 +358,7 @@ func Judge(change Change) Verdict {
 	verdict.add(judgeCommits(change))
 	verdict.add(judgeExperiments(change))
 	verdict.add(judgeRecords(change))
+	verdict.add(judgeRemovals(change))
 	verdict.add(judgeSize(change))
 
 	return verdict
@@ -418,8 +428,8 @@ func judgeCommits(change Change) Verdict {
 // A change that removes an experiment's record along with its files satisfies
 // this rule, because the record is in the set of paths the change touched. That
 // a landed record may not be removed at all is a different rule about a
-// different failure, and it is issue #69's rather than this one's. Nothing here
-// should be read as permitting it.
+// different failure, and it is record-already-landed-was-removed rather than
+// this one. Nothing here should be read as permitting it.
 func judgeExperiments(change Change) Verdict {
 	if !change.FilesRead {
 		return Verdict{Skips: []Skip{{

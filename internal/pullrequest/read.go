@@ -108,7 +108,10 @@ func ParseEvent(data []byte) (Event, error) {
 // A rename produces two paths for one entry, and both are returned. The old one
 // is gone at the head and the new one is not, which is what the record rule
 // needs: moving a file out of an experiment is a change to that experiment
-// whichever end of the move a reader looks at.
+// whichever end of the move a reader looks at. The new one also carries where
+// it came from, because a removal beside an addition and a move are the same
+// two paths otherwise, and the rule over a renamed experiment has to name both
+// ends of the move.
 func ParseFiles(data []byte) ([]File, error) {
 	fields := splitNul(data)
 	var files []File
@@ -131,7 +134,7 @@ func ParseFiles(data []byte) ([]File, error) {
 		case 2:
 			files = append(files,
 				File{Path: fields[i+1], Gone: true},
-				File{Path: fields[i+2], Gone: false})
+				File{Path: fields[i+2], Gone: false, From: fields[i+1]})
 		}
 		i += paths
 	}

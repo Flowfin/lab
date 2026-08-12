@@ -76,7 +76,8 @@ type RecordChange struct {
 	// After is the record at the head of the range, and AfterPresent says it
 	// is still there. A record this change removes has no after. That a landed
 	// record may not be removed at all is a different rule about a different
-	// failure, and it is issue #69's rather than this one's.
+	// failure, and it is record-already-landed-was-removed in removal.go
+	// rather than either of the two here.
 	After        []byte
 	AfterPresent bool
 }
