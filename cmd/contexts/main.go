@@ -55,29 +55,42 @@ const (
 )
 
 func main() {
-	os.Exit(run(os.Stdin, os.Stdout, os.Stderr, contexts.WorkflowsDir, contexts.Absences))
+	os.Exit(run(os.Stdin, os.Stdout, os.Stderr, edges{
+		workflowsDir: contexts.WorkflowsDir,
+		absences:     contexts.Absences,
+		alsoReported: contexts.ReportedOutsideAWorkflowFile,
+	}))
 }
 
-// run is main with its edges passed in: where the workflows are read from, and
-// which deliberate-absence list the comparison is made against. Both are
-// parameters so that what the command prints and what it returns can be read by
-// a test against a tree written out in full, rather than against whichever
-// repository the suite happens to be running inside.
-func run(in io.Reader, out, errOut io.Writer, workflowsDir string, absences []contexts.Absence) int {
+// edges is everything this command reaches for that is not its own logic: where
+// the workflows are read from, which deliberate-absence list the comparison is
+// made against, and which check names arrive from something other than a job.
+// All three are parameters so that what the command prints and what it returns
+// can be read by a test against a tree written out in full, rather than against
+// whichever repository the suite happens to be running inside.
+type edges struct {
+	workflowsDir string
+	absences     []contexts.Absence
+	alsoReported []contexts.Declared
+}
+
+// run is main with its edges passed in.
+func run(in io.Reader, out, errOut io.Writer, e edges) int {
 	required, err := readRequired(in)
 	if err != nil {
 		fmt.Fprintf(errOut, "contexts: %v\n", err)
 		return exitCannot
 	}
 
-	declared, err := contexts.ReadWorkflows(workflowsDir)
+	declared, err := contexts.ReadWorkflows(e.workflowsDir)
 	if err != nil {
 		fmt.Fprintf(errOut, "contexts: %v\n", err)
 		return exitCannot
 	}
+	declared = append(declared, e.alsoReported...)
 
-	verdict := contexts.Judge(declared, required, absences)
-	fmt.Fprint(out, verdict.Report(declared, required, absences))
+	verdict := contexts.Judge(declared, required, e.absences)
+	fmt.Fprint(out, verdict.Report(declared, required, e.absences))
 	if len(verdict.Refusals) > 0 {
 		return exitRefused
 	}

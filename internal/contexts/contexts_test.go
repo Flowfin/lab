@@ -208,6 +208,19 @@ func TestACaseThatRefusesNamesANearNeighbour(t *testing.T) {
 	}
 }
 
+// declarationsInThisRepository is every check name that arrives on a commit
+// here: the ones the workflow files declare, and the ones a code-scanning upload
+// reports under, which are written down in ReportedOutsideAWorkflowFile because
+// no file in this tree carries them.
+func declarationsInThisRepository(t *testing.T) []Declared {
+	t.Helper()
+	declared, err := ReadWorkflows(workflowsInThisRepository)
+	if err != nil {
+		t.Fatalf("reading %s: %v", workflowsInThisRepository, err)
+	}
+	return append(declared, ReportedOutsideAWorkflowFile...)
+}
+
 // TestNoDeliberateAbsenceNamesSomethingThisTreeDoesNotDeclare is the rename
 // refusal, run against this repository rather than against a fixture.
 //
@@ -218,10 +231,7 @@ func TestACaseThatRefusesNamesANearNeighbour(t *testing.T) {
 // request. What it cannot do is the other direction, which needs the required
 // set and therefore the API, and that half is the workflow's.
 func TestNoDeliberateAbsenceNamesSomethingThisTreeDoesNotDeclare(t *testing.T) {
-	declared, err := ReadWorkflows(workflowsInThisRepository)
-	if err != nil {
-		t.Fatalf("reading %s: %v", workflowsInThisRepository, err)
-	}
+	declared := declarationsInThisRepository(t)
 	names := map[string]bool{}
 	for _, entry := range declared {
 		names[entry.Name] = true
@@ -243,10 +253,7 @@ func TestNoDeliberateAbsenceNamesSomethingThisTreeDoesNotDeclare(t *testing.T) {
 // the ruleset is a name leaving this list, and this test is what makes that
 // removal deliberate rather than silent.
 func TestEveryCheckNameThisTreeDeclaresIsWrittenDown(t *testing.T) {
-	declared, err := ReadWorkflows(workflowsInThisRepository)
-	if err != nil {
-		t.Fatalf("reading %s: %v", workflowsInThisRepository, err)
-	}
+	declared := declarationsInThisRepository(t)
 	written := map[string]bool{}
 	for _, absence := range Absences {
 		written[absence.Name] = true
@@ -284,5 +291,31 @@ func TestAJobWithNoNameOfItsOwnIsNotedRatherThanRefused(t *testing.T) {
 	}
 	if len(verdict.Notes) != 1 {
 		t.Fatalf("produced %d note(s), and the fallback to the job id is meant to be said out loud", len(verdict.Notes))
+	}
+}
+
+// TestANameReportedOutsideAWorkflowFileIsNotedRatherThanRefused pins the other
+// place this package answers with a note. A code-scanning upload creates a check
+// run named after the analysis rather than after the job that uploaded it, so
+// the name is in no workflow file and a comparison that knew only about jobs
+// would refuse a required context matching it as one nothing reports. That would
+// be a false red on the change that assembles the required set.
+func TestANameReportedOutsideAWorkflowFileIsNotedRatherThanRefused(t *testing.T) {
+	if len(ReportedOutsideAWorkflowFile) == 0 {
+		t.Fatal("nothing is written down as reported outside a workflow file, and the measurement in the list's comment says two names are")
+	}
+	var required []string
+	for _, entry := range ReportedOutsideAWorkflowFile {
+		if !entry.FromUpload {
+			t.Errorf("%q is in this list and is not marked as coming from an upload, so the report would describe it as read out of a file", entry.Name)
+		}
+		required = append(required, entry.Name)
+	}
+	verdict := Judge(ReportedOutsideAWorkflowFile, required, nil)
+	if len(verdict.Refusals) != 0 {
+		t.Errorf("refused %v, and a required context these names match is reported rather than missing", verdict.Refusals)
+	}
+	if len(verdict.Notes) != len(ReportedOutsideAWorkflowFile) {
+		t.Errorf("produced %d note(s) for %d name(s), and what a reader is holding for these is different from a name read out of a file", len(verdict.Notes), len(ReportedOutsideAWorkflowFile))
 	}
 }

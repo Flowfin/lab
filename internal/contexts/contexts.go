@@ -139,6 +139,8 @@ var Absences = []Absence{
 	{Name: "vet", Why: theSetIsEmpty, Until: "#26"},
 	{Name: "format", Why: theSetIsEmpty, Until: "#26"},
 	{Name: "CodeQL (go)", Why: theSetIsEmpty, Until: "#26"},
+	{Name: "CodeQL", Why: theSetIsEmpty, Until: "#26"},
+	{Name: "zizmor", Why: theSetIsEmpty, Until: "#26"},
 	{Name: "DCO sign-off", Why: theSetIsEmpty, Until: "#26"},
 	{Name: "dependency-review", Why: theSetIsEmpty, Until: "#26"},
 	{Name: "headless and unelevated", Why: theSetIsEmpty, Until: "#26"},
@@ -152,8 +154,50 @@ var Absences = []Absence{
 }
 
 // theSetIsEmpty is the reason every pending entry above carries, written once so
-// twenty-two rows cannot drift into twenty-two slightly different sentences.
+// two dozen rows cannot drift into two dozen slightly different sentences.
 const theSetIsEmpty = "the ruleset on the default branch requires no status check at all today, so no name this tree declares can be in a set that has no members"
+
+// ReportedOutsideAWorkflowFile is every check name that arrives on a commit here
+// and is written in no workflow file, so the reader of those files can never
+// find it.
+//
+// NOT EVERY CHECK RUN COMES FROM A JOB. A code-scanning upload creates a check
+// run of its own, named after the analysis rather than after the job that
+// uploaded it, and it is a name a ruleset can require exactly like any other. A
+// comparison that knew only about jobs would refuse such a context as one
+// nothing reports, which is a false red on the change that assembles the
+// required set, and a false red is the failure this comparison exists to avoid
+// rather than to cause.
+//
+// Measured rather than assumed. Every check run on one commit, with the
+// application that created it:
+//
+//	gh api "repos/Flowfin/lab/commits/$(git rev-parse HEAD)/check-runs" --paginate \
+//	  --jq '.check_runs[] | "\(.name)\t\(.app.slug)"' | sort -u
+//
+// On 2026-08-12 that printed twenty-four names, of which twenty-two came from
+// github-actions and the two below came from github-advanced-security. Re-run it
+// before trusting this list.
+//
+// WHAT THIS LIST COSTS. These two names are held here rather than read out of a
+// file, so the rename this whole check is about is not caught for them: the
+// string a code-scanning upload reports under is decided by the analysis rather
+// than by a line somebody can change in this tree, and nothing here reads it.
+// For these two the comparison is a statement that the name is expected, and for
+// every other name it is a statement about what the tree says. The two are
+// different claims and the report says which one a reader is holding.
+var ReportedOutsideAWorkflowFile = []Declared{
+	{
+		Name:       "CodeQL",
+		Workflow:   "codeql.yml",
+		FromUpload: true,
+	},
+	{
+		Name:       "zizmor",
+		Workflow:   "zizmor.yml",
+		FromUpload: true,
+	},
+}
 
 // Declared is one check name a workflow in this tree declares.
 type Declared struct {
@@ -171,6 +215,14 @@ type Declared struct {
 	// gate's string comes from is entitled to know it came from an identifier
 	// rather than from a line somebody chose.
 	FromJobID bool
+
+	// FromUpload says this name was not read out of a workflow file at all and
+	// comes from ReportedOutsideAWorkflowFile. Workflow then names the file
+	// whose run causes the check to appear rather than the file the string was
+	// read from, and a rename of the string is not something this comparison
+	// can see. It is a note for the same reason as the field above: what a
+	// reader is holding is different for these names and the report says so.
+	FromUpload bool
 }
 
 // Refusal is one violation, named by its property so a fixture and a run compare
@@ -237,6 +289,12 @@ func Judge(declared []Declared, required []string, absences []Absence) Verdict {
 			verdict.Notes = append(verdict.Notes, Note{
 				Subject: entry.Workflow,
 				Detail:  fmt.Sprintf("the check name %q comes from the job id, because the job carries no name of its own", entry.Name),
+			})
+		}
+		if entry.FromUpload {
+			verdict.Notes = append(verdict.Notes, Note{
+				Subject: entry.Workflow,
+				Detail:  fmt.Sprintf("the check name %q is written in no workflow file and is expected here rather than read, so a change to the string it reports under is not caught by this comparison", entry.Name),
 			})
 		}
 	}

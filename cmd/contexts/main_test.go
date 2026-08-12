@@ -49,7 +49,7 @@ func TestTheCommandReturnsTheCodeItsVerdictEarns(t *testing.T) {
 	} {
 		t.Run(one.name, func(t *testing.T) {
 			var out, errOut bytes.Buffer
-			got := run(strings.NewReader(one.required), &out, &errOut, one.dir, nil)
+			got := run(strings.NewReader(one.required), &out, &errOut, edges{workflowsDir: one.dir})
 			if got != one.want {
 				t.Errorf("returned %d, want %d\nstdout: %s\nstderr: %s", got, one.want, out.String(), errOut.String())
 			}
@@ -66,8 +66,7 @@ func TestTheReportSaysWhatItCompared(t *testing.T) {
 	code := run(
 		strings.NewReader("the first check\nthe second check\n"),
 		&out, &errOut,
-		filepath.Join(fixtures, "everything-agrees", "workflows"),
-		nil,
+		edges{workflowsDir: filepath.Join(fixtures, "everything-agrees", "workflows")},
 	)
 	if code != exitClean {
 		t.Fatalf("returned %d\n%s", code, errOut.String())
@@ -91,8 +90,7 @@ func TestAnEmptyRequiredSetIsCompared(t *testing.T) {
 	code := run(
 		strings.NewReader(""),
 		&out, &errOut,
-		filepath.Join(fixtures, "everything-agrees", "workflows"),
-		nil,
+		edges{workflowsDir: filepath.Join(fixtures, "everything-agrees", "workflows")},
 	)
 	if code != exitRefused {
 		t.Fatalf("returned %d, and with an empty required set every declared name is outside it\n%s%s", code, out.String(), errOut.String())
