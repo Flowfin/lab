@@ -90,10 +90,26 @@ jobs:
         # record 0017 supplying the mechanism record 0009 decided the property
         # for. Widening this back to ./... puts a prototype somebody abandoned
         # half-written in front of six platforms it was never about.
+        #
+        # The entry says what it compiled rather than passing in silence. A tick
+        # that printed nothing reads the same whether the pattern reached the
+        # runner or reached nothing at all, and the second one is green:
+        # `go build ./docs/...` prints a warning that it matched no packages and
+        # exits 0. That is what the zero-check below refuses, and it is a
+        # mistake somebody makes by narrowing a pattern rather than by writing
+        # a directory that is not there, which the toolchain already refuses.
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-        run: go build ./cmd/... ./internal/...
+        run: |
+          set -euo pipefail
+          go build ./cmd/... ./internal/...
+          compiled=$(go list ./cmd/... ./internal/... | wc -l)
+          echo "${GOOS}/${GOARCH}: compiled ${compiled} package(s) of the runner"
+          if [ "$compiled" -eq 0 ]; then
+            echo "::error::This entry reported success having compiled nothing."
+            exit 1
+          fi
 
   test:
     # One entry per platform record 0012 says the release ships a binary for and
@@ -237,7 +253,20 @@ jobs:
         # The step name and the pattern say the same thing now. Record 0017
         # keeps an experiment's code out of every command here, and vet is one
         # of them.
-        run: go vet ./cmd/... ./internal/...
+        #
+        # It says how much it read, for the reason the build entries do: a job
+        # whose whole output is a green tick cannot be told from one that
+        # covered less than its name says.
+        #
+        # It carries no zero-check, and the build entries do, because the two
+        # tools answer an empty pattern differently. `go vet ./docs/...` prints
+        # "no packages to vet" and exits 1, so vet refuses that case itself and
+        # a check here could not fail for the reason it named.
+        run: |
+          set -euo pipefail
+          go vet ./cmd/... ./internal/...
+          vetted=$(go list ./cmd/... ./internal/... | wc -l)
+          echo "vetted ${vetted} package(s) of the runner"
 
   format:
     name: format
