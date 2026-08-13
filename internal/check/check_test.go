@@ -22,12 +22,7 @@ import (
 func TestCases(t *testing.T) {
 	for name, want := range loadCases(t) {
 		t.Run(name, func(t *testing.T) {
-			root := filepath.Join(casesDir, name, "tree")
-			if _, err := os.Stat(root); err != nil {
-				t.Fatalf("case %s has no tree: %v", name, err)
-			}
-
-			got, err := Walk(root, fixedNow)
+			got, err := walkCase(t, name)
 			if err != nil {
 				t.Fatalf("walk failed: %v", err)
 			}
@@ -195,7 +190,7 @@ func TestFixtureBytesSurviveTheCheckout(t *testing.T) {
 // the source, and the reader is usually somebody who has just arrived.
 func TestARefusalNamesItsSubject(t *testing.T) {
 	for name := range loadCases(t) {
-		result, err := Walk(filepath.Join(casesDir, name, "tree"), fixedNow)
+		result, err := walkCase(t, name)
 		if err != nil {
 			t.Fatalf("walk of %s failed: %v", name, err)
 		}
@@ -231,7 +226,7 @@ func TestWalkWritesNothing(t *testing.T) {
 	before := fingerprint(t, casesDir)
 
 	for name := range loadCases(t) {
-		if _, err := Walk(filepath.Join(casesDir, name, "tree"), fixedNow); err != nil {
+		if _, err := walkCase(t, name); err != nil {
 			t.Fatalf("walk of %s failed: %v", name, err)
 		}
 	}

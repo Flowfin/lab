@@ -1,9 +1,9 @@
 package check
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"strings"
 )
@@ -62,7 +62,7 @@ const (
 // A record whose bytes do not parse as a record is not judged here, for the
 // reason refuseState and refuseHeaderDates both give: nothing can read a field
 // out of a file that has no header.
-func refuseHardware(experiment, path string, data []byte) ([]Refusal, error) {
+func refuseHardware(fsys fs.FS, inside, experiment, path string, data []byte) ([]Refusal, error) {
 	record, err := ParseRecord(data)
 	if err != nil {
 		return nil, nil
@@ -82,7 +82,7 @@ func refuseHardware(experiment, path string, data []byte) ([]Refusal, error) {
 		}}, nil
 	}
 
-	registered, err := harnessTestsUnder(experiment)
+	registered, err := harnessTestsUnder(fsys, inside, experiment)
 	if err != nil {
 		return nil, err
 	}
@@ -127,21 +127,21 @@ func refuseHardware(experiment, path string, data []byte) ([]Refusal, error) {
 // directory nobody wrote by hand. A directory below the bound is not descended
 // into, and TheTreeIsDeeperThanTheWalkReads is what refuses the tree that
 // reaches it.
-func harnessTestsUnder(experiment string) ([]string, error) {
+func harnessTestsUnder(fsys fs.FS, inside, experiment string) ([]string, error) {
 	var registered []string
 
-	// filepath.WalkDir does not follow symbolic links, so a link pointing out
-	// of the experiment is reported as a link and never descended into.
-	err := filepath.WalkDir(experiment, func(path string, entry fs.DirEntry, err error) error {
+	// A tree walk does not follow symbolic links, so a link pointing out of
+	// the experiment is reported as a link and never descended into. What
+	// refuses such a link is the stray-record walk, which reaches every path
+	// under experiments/; this reading leaves it alone and registers nothing
+	// for it, because a name is all this reads and a link's name says nothing
+	// about what it points at.
+	err := fs.WalkDir(fsys, inside, func(name string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if entry.IsDir() {
-			deeper, err := depthOf(experiment, path)
-			if err != nil {
-				return err
-			}
-			if deeper > WalkDepthBound {
+			if depthOf(name)-depthOf(inside) > WalkDepthBound {
 				return fs.SkipDir
 			}
 			return nil
@@ -149,15 +149,11 @@ func harnessTestsUnder(experiment string) ([]string, error) {
 		if !entry.Type().IsRegular() || !strings.HasSuffix(entry.Name(), HarnessTestSuffix) {
 			return nil
 		}
-		relative, err := filepath.Rel(experiment, path)
-		if err != nil {
-			return fmt.Errorf("cannot place %s inside %s: %w", path, experiment, err)
-		}
-		registered = append(registered, filepath.ToSlash(relative))
+		registered = append(registered, strings.TrimPrefix(name, inside+"/"))
 		return nil
 	})
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("cannot walk %s: %w", experiment, err)
