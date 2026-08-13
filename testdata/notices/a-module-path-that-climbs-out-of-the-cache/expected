@@ -1,0 +1,22 @@
+# Third-party notices
+
+These notices are for github.com/Flowfin/lab@v0.0.0-devel.
+Built at revision 8f3c1d9a2b7e4f60c5d8a1b3e6f902478c1d5e2a.
+
+This file is generated from the module set the binary records, and not from a
+list anybody maintains. What it lists is every module the binary contains,
+the version that went in, and the licence text that module shipped, reproduced
+in full because supplying the text is what most licences ask for and a link
+is not a copy.
+
+It does not say which licence a module is under. It reproduces the file the
+module shipped and takes no view on what that file is, which is a judgement no
+reading of the text makes reliably. Anybody who needs that answer reads the
+text below rather than a label this document would have guessed.
+
+## What this document could not supply
+
+Each line below is a module the binary contains whose licence text was not
+read. This document is incomplete by exactly these entries.
+
+- ../../elsewhere@v1.0.0: the binary contains it and its licence text could not be read (the module path "../../elsewhere" does not name a directory under the cache root, so nothing there is this module's licence), so this document cannot supply the text that licence asks to be supplied (dependency-has-no-licence-text)
