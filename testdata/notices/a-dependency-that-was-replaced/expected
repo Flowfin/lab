@@ -1,0 +1,31 @@
+# Third-party notices
+
+These notices are for github.com/Flowfin/lab@v0.0.0-devel.
+Built at revision 8f3c1d9a2b7e4f60c5d8a1b3e6f902478c1d5e2a.
+
+This file is generated from the module set the binary records, and not from a
+list anybody maintains. What it lists is every module the binary contains,
+the version that went in, and the licence text that module shipped, reproduced
+in full because supplying the text is what most licences ask for and a link
+is not a copy.
+
+It does not say which licence a module is under. It reproduces the file the
+module shipped and takes no view on what that file is, which is a judgement no
+reading of the text makes reliably. Anybody who needs that answer reads the
+text below rather than a label this document would have guessed.
+
+## What the binary contains
+
+1 module, in module path order.
+
+### example.com/widget@v1.2.3, which replaces example.com/gadget@v0.9.0
+
+The text below is example.com/widget@v1.2.3/LICENSE as that module shipped it.
+
+```text
+Widget Licence 1.0
+
+Permission to use, copy and distribute this widget is granted, provided that
+this notice is reproduced in full in every copy that is distributed.
+```
+
