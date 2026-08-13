@@ -59,7 +59,8 @@ func TestWhatCountsAsRegisteredWithTheHarness(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			registered, err := harnessTestsUnder(filepath.Join(casesDir, tc.name, "tree", "experiments", "one"))
+			tree := filepath.Join(casesDir, tc.name, "tree")
+			registered, err := harnessTestsUnder(os.DirFS(tree), "experiments/one", filepath.Join(tree, "experiments", "one"))
 			if err != nil {
 				t.Fatalf("reading the directory failed: %v", err)
 			}
@@ -75,7 +76,8 @@ func TestWhatCountsAsRegisteredWithTheHarness(t *testing.T) {
 // experiments/ with no record at all is refused by ExperimentHasNoRecord, and a
 // second refusal about its harness files would name a repair nobody needs.
 func TestADirectoryThatIsNotThereRegistersNothing(t *testing.T) {
-	registered, err := harnessTestsUnder(filepath.Join(casesDir, "no-experiments-directory", "tree", "experiments", "nothing-here"))
+	tree := filepath.Join(casesDir, "no-experiments-directory", "tree")
+	registered, err := harnessTestsUnder(os.DirFS(tree), "experiments/nothing-here", filepath.Join(tree, "experiments", "nothing-here"))
 	if err != nil {
 		t.Fatalf("reading a directory that is not there failed: %v", err)
 	}

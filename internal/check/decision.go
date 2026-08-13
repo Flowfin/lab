@@ -1,9 +1,9 @@
 package check
 
 import (
+	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
+	"io/fs"
 	"regexp"
 	"sort"
 	"strings"
@@ -80,14 +80,13 @@ var supersession = regexp.MustCompile(`(?i)supersedes\s+(?:record\s+)?(\d{4})`)
 // along with what it refused. A tree with no decisions directory reads none,
 // which is an ordinary state for a fixture tree and is reported rather than
 // treated as an error.
-func refuseDecisions(root string) (int, []Refusal, error) {
-	dir := filepath.Join(root, filepath.FromSlash(DecisionsDir))
-	entries, err := os.ReadDir(dir)
+func refuseDecisions(fsys fs.FS, root string) (int, []Refusal, error) {
+	entries, err := fs.ReadDir(fsys, DecisionsDir)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return 0, nil, nil
 		}
-		return 0, nil, fmt.Errorf("cannot read %s: %w", dir, err)
+		return 0, nil, fmt.Errorf("cannot read %s: %w", at(root, DecisionsDir), err)
 	}
 
 	var refusals []Refusal
@@ -96,9 +95,9 @@ func refuseDecisions(root string) (int, []Refusal, error) {
 	present := make(map[string]bool)
 	var records []string
 
-	// os.ReadDir sorts by filename, so the record that reports a shared number
-	// is the later one of the pair every time this runs rather than whichever
-	// the filesystem happened to hand over first.
+	// A directory listing arrives sorted by filename, so the record that
+	// reports a shared number is the later one of the pair every time this
+	// runs rather than whichever the filesystem happened to hand over first.
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -113,7 +112,8 @@ func refuseDecisions(root string) (int, []Refusal, error) {
 	}
 
 	for _, name := range records {
-		path := filepath.Join(dir, name)
+		inside := DecisionsDir + "/" + name
+		path := at(root, inside)
 		number := decisionFileName.FindStringSubmatch(name)[1]
 
 		if first, taken := numbers[number]; taken {
@@ -126,7 +126,7 @@ func refuseDecisions(root string) (int, []Refusal, error) {
 			numbers[number] = name
 		}
 
-		data, err := os.ReadFile(path)
+		data, err := fs.ReadFile(fsys, inside)
 		if err != nil {
 			return read, nil, fmt.Errorf("cannot read %s: %w", path, err)
 		}

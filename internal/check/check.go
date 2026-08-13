@@ -7,9 +7,11 @@ package check
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -128,6 +130,29 @@ const (
 	// is usually a file that moved. A path that leaves the repository was
 	// never going to resolve here whatever the tree held.
 	RecordNamesAPathOutsideTheRepository = "record-names-a-path-outside-the-repository"
+
+	// ExperimentsHoldsASymbolicLink refuses a symbolic link anywhere under
+	// experiments/, and refuses it rather than resolving it. The tree under
+	// that directory is written by whoever proposes an experiment, and a link
+	// in it is the escape a record's prose makes with a path, made by a tool
+	// instead: a checker that followed one would read a file nobody put in
+	// this repository and report the tree as being in order. Refusing is the
+	// cheaper rule and the one a reader can check, because a rule that follows
+	// a link and then judges where it landed has to be right about every
+	// filesystem the release targets, and one of them answers differently.
+	//
+	// It is refused rather than walked past, which is the state this replaces.
+	// A link where an experiment directory should be was skipped in silence,
+	// so an experiment reached only through one stated its question to nobody:
+	// every rule about a record reads one the walk found, and the walk found
+	// none.
+	//
+	// WHAT IT DOES NOT REACH. A link outside experiments/ is not this check's
+	// business, and a link inside one that points at a file inside the
+	// repository is refused exactly like one pointing out of it. Where a link
+	// goes is a question about a filesystem this cannot be right about, and
+	// answering it is not what the rule needs.
+	ExperimentsHoldsASymbolicLink = "experiments-holds-a-symbolic-link"
 
 	// RecordIsAboveTheSizeBound refuses a record larger than the bound above
 	// without opening it. A checker that reads whatever it is pointed at
@@ -344,39 +369,74 @@ func Walk(root string, now time.Time) (Result, error) {
 		return res, fmt.Errorf("%s is not a directory", root)
 	}
 
-	rootRefusals, err := refuseRootDirectories(root)
+	return walk(os.DirFS(root), root, now)
+}
+
+// walk is the whole of the examination, over a filesystem it is given rather
+// than over the one the process is running on.
+//
+// THE FILESYSTEM IS A PARAMETER SO THAT A DIRECTORY ENTRY CAN BE PUT IN FRONT
+// OF THE WALK WITHOUT ASKING THE OPERATING SYSTEM FOR ONE. Refusing a symbolic
+// link is a rule about what an entry is, and creating a symbolic link needs a
+// privilege an ordinary Windows account does not hold: os.Symlink returns
+// windows error 1314 there, measured on issue #61. A fixture that asks the
+// machine for a link therefore fails on a platform record 0012 runs the suite
+// on, for a reason that has nothing to do with this runner, and record 0007
+// keeps the default run unelevated. Reading through fs.FS is what lets the
+// entry be supplied instead, so the rule is proved on every platform by the
+// same fixture rather than on the ones whose accounts happen to be privileged.
+//
+// root is carried alongside and is used for one thing: building the path a
+// refusal names, so that a reader is sent to the file as it sits on their
+// machine rather than to a path relative to a root they would have to work out.
+// Nothing is read through it.
+func walk(fsys fs.FS, root string, now time.Time) (Result, error) {
+	res := Result{Root: root, Now: now}
+
+	rootRefusals, err := refuseRootDirectories(fsys, root)
 	if err != nil {
 		return res, err
 	}
 	res.Refusals = append(res.Refusals, rootRefusals...)
 
-	if err := walkExperiments(root, &res); err != nil {
+	if err := walkExperiments(fsys, root, &res); err != nil {
 		return res, err
 	}
 
-	strayRefusals, err := refuseStrayRecords(root)
+	strayRefusals, err := refuseStrayRecords(fsys, root)
 	if err != nil {
 		return res, err
 	}
 	res.Refusals = append(res.Refusals, strayRefusals...)
 
-	decisions, decisionRefusals, err := refuseDecisions(root)
+	decisions, decisionRefusals, err := refuseDecisions(fsys, root)
 	if err != nil {
 		return res, err
 	}
-	res.DecisionsPresent = decisionsPresent(root)
+	res.DecisionsPresent = decisionsPresent(fsys)
 	res.Decisions = decisions
 	res.Refusals = append(res.Refusals, decisionRefusals...)
 
 	return res, nil
 }
 
+// at is the path a refusal names: a location inside the walked filesystem,
+// written the way the machine the reader is on writes a path. Every subject in
+// this package goes through it, so the one place that decides what a reader is
+// shown is here rather than at each refusal site.
+func at(root, name string) string {
+	if name == "." {
+		return root
+	}
+	return filepath.Join(root, filepath.FromSlash(name))
+}
+
 // decisionsPresent says whether the tree holds a decisions directory at all.
 // It is asked separately from the count because a tree with none and a tree
 // whose directory is empty both read zero records, and collapsing the two into
 // that zero is the failure this package exists to avoid.
-func decisionsPresent(root string) bool {
-	info, err := os.Stat(filepath.Join(root, filepath.FromSlash(DecisionsDir)))
+func decisionsPresent(fsys fs.FS) bool {
+	info, err := fs.Stat(fsys, DecisionsDir)
 	return err == nil && info.IsDir()
 }
 
@@ -384,39 +444,40 @@ func decisionsPresent(root string) bool {
 // every record it finds to the rules about a record. It is the walk the rest
 // of this package was built around; the two refusals either side of it in Walk
 // are about where a record is rather than about what one says.
-func walkExperiments(root string, res *Result) error {
+func walkExperiments(fsys fs.FS, root string, res *Result) error {
 	var experiments []experiment
-	dir := filepath.Join(root, ExperimentsDir)
-	entries, err := os.ReadDir(dir)
+	entries, err := fs.ReadDir(fsys, ExperimentsDir)
 	if err != nil {
 		// No experiments directory is an ordinary state for this tree and
 		// the caller is told about it rather than shown a zero that looks
 		// like an empty one. Anything else is a tree the walk cannot read,
 		// and reporting that as zero would be the failure this package
 		// exists to avoid.
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil
 		}
-		return fmt.Errorf("cannot read %s: %w", dir, err)
+		return fmt.Errorf("cannot read %s: %w", at(root, ExperimentsDir), err)
 	}
 	res.ExperimentsPresent = true
 
 	for _, entry := range entries {
-		// os.ReadDir does not follow symbolic links, so a link pointing at a
-		// directory reports itself as a link and is not walked. The tree the
-		// runner reads is untrusted input, and following a link out of it is
-		// how a checker reads something nobody put in the repository.
+		// A directory listing does not follow symbolic links, so a link
+		// pointing at a directory reports itself as a link and is not walked
+		// here. What refuses it is the stray-record walk, which reaches every
+		// path under this one; this is the reading that leaves it alone.
 		if !entry.IsDir() {
 			continue
 		}
 		res.Directories++
 
-		experiment := filepath.Join(dir, entry.Name())
-		record := filepath.Join(experiment, RecordName)
+		experimentPath := path.Join(ExperimentsDir, entry.Name())
+		recordPath := path.Join(experimentPath, RecordName)
+		experiment := at(root, experimentPath)
+		record := at(root, recordPath)
 		seen := experimentAt(experiment, record, entry.Name())
-		recordInfo, err := os.Stat(record)
+		recordInfo, err := fs.Stat(fsys, recordPath)
 		if err != nil {
-			if os.IsNotExist(err) {
+			if errors.Is(err, fs.ErrNotExist) {
 				res.Refusals = append(res.Refusals, Refusal{
 					Property: ExperimentHasNoRecord,
 					Subject:  experiment,
@@ -450,13 +511,13 @@ func walkExperiments(root string, res *Result) error {
 			experiments = append(experiments, seen)
 			continue
 		}
-		data, err := readRecord(record)
+		data, err := readRecord(fsys, root, recordPath)
 		if err != nil {
 			return err
 		}
 		res.Records++
 		res.Refusals = append(res.Refusals, refuseBytes(record, data)...)
-		res.Refusals = append(res.Refusals, refusePaths(root, record, data)...)
+		res.Refusals = append(res.Refusals, refusePaths(fsys, root, record, data)...)
 		res.Refusals = append(res.Refusals, refuseQuestion(record, data)...)
 		res.Refusals = append(res.Refusals, refuseState(record, data)...)
 		res.Refusals = append(res.Refusals, refuseHeaderDates(record, data)...)
@@ -466,7 +527,7 @@ func walkExperiments(root string, res *Result) error {
 		// The only rule here that reads the directory as well as the record,
 		// which is why it takes both and why it can fail: the others judge
 		// bytes already in hand and this one walks.
-		hardwareRefusals, err := refuseHardware(experiment, record, data)
+		hardwareRefusals, err := refuseHardware(fsys, experimentPath, experiment, record, data)
 		if err != nil {
 			return err
 		}
@@ -499,8 +560,8 @@ func experimentAt(path, record, directory string) experiment {
 // reached a commit yet does not change that. The one exception is the
 // checkout's own machinery, which gitDir names and which is never part of the
 // tree the record describes.
-func refuseRootDirectories(root string) ([]Refusal, error) {
-	entries, err := os.ReadDir(root)
+func refuseRootDirectories(fsys fs.FS, root string) ([]Refusal, error) {
+	entries, err := fs.ReadDir(fsys, ".")
 	if err != nil {
 		return nil, fmt.Errorf("cannot read %s: %w", root, err)
 	}
@@ -512,7 +573,7 @@ func refuseRootDirectories(root string) ([]Refusal, error) {
 		}
 		refusals = append(refusals, Refusal{
 			Property: RootHoldsADirectoryTheLayoutDoesNotName,
-			Subject:  filepath.Join(root, entry.Name()),
+			Subject:  at(root, entry.Name()),
 			Detail:   fmt.Sprintf("record 0002 names %s at the root and this is not one of them, so adding it is a change to that record", rootDirectoriesInWords()),
 		})
 	}
@@ -543,23 +604,18 @@ func rootDirectoriesInWords() string {
 // runner that refused this repository for carrying the trees that prove it
 // could not be run here at all. A record that is genuinely misplaced under
 // testdata/ is therefore not refused, and a green run does not say otherwise.
-func refuseStrayRecords(root string) ([]Refusal, error) {
+func refuseStrayRecords(fsys fs.FS, root string) ([]Refusal, error) {
 	var refusals []Refusal
 
-	// filepath.WalkDir does not follow symbolic links, so a link pointing out
-	// of the tree is reported as a link and never descended into.
-	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+	err := fs.WalkDir(fsys, ".", func(name string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if entry.IsDir() {
-			if path != root && (entry.Name() == gitDir || entry.Name() == FixturesDir) {
+			if name != "." && (entry.Name() == gitDir || entry.Name() == FixturesDir) {
 				return fs.SkipDir
 			}
-			deeper, err := depthOf(root, path)
-			if err != nil {
-				return err
-			}
+			deeper := depthOf(name)
 			if deeper > WalkDepthBound {
 				// Refused and not descended into, so the refusal is one line
 				// naming the directory the walk stopped at rather than one
@@ -568,7 +624,7 @@ func refuseStrayRecords(root string) ([]Refusal, error) {
 				// same thing a hundred times.
 				refusals = append(refusals, Refusal{
 					Property: TheTreeIsDeeperThanTheWalkReads,
-					Subject:  path,
+					Subject:  at(root, name),
 					Detail: fmt.Sprintf("it is %d directories below %s and the walk reads at most %d, so nothing under it was examined",
 						deeper, root, WalkDepthBound),
 				})
@@ -576,23 +632,33 @@ func refuseStrayRecords(root string) ([]Refusal, error) {
 			}
 			return nil
 		}
+		// A link is refused where the walk meets it and is never opened,
+		// resolved or descended into. It is the whole of the second half of
+		// the untrusted-input rule: the reading above judges a path a record
+		// wrote, and this judges a link somebody put in the tree, which is the
+		// same escape made by a tool rather than by a sentence.
+		if entry.Type()&fs.ModeSymlink != 0 && underExperiments(name) {
+			refusals = append(refusals, Refusal{
+				Property: ExperimentsHoldsASymbolicLink,
+				Subject:  at(root, name),
+				Detail: fmt.Sprintf("it is a symbolic link under %s, and a link is refused rather than followed, so what is at the other end was neither read nor examined",
+					ExperimentsDir),
+			})
+			return nil
+		}
 		if entry.Name() != RecordName {
 			return nil
 		}
 
-		relative, err := filepath.Rel(root, path)
-		if err != nil {
-			return fmt.Errorf("cannot place %s inside %s: %w", path, root, err)
-		}
-		segments := strings.Split(filepath.ToSlash(relative), "/")
+		segments := strings.Split(name, "/")
 		if len(segments) == 3 && segments[0] == ExperimentsDir {
 			return nil
 		}
 		refusals = append(refusals, Refusal{
 			Property: RecordOutsideThePlaceRecordsLive,
-			Subject:  path,
+			Subject:  at(root, name),
 			Detail: fmt.Sprintf("a record lives at %s/<slug>/%s and this one is at %s, so no rule about a record reaches it",
-				ExperimentsDir, RecordName, filepath.ToSlash(relative)),
+				ExperimentsDir, RecordName, name),
 		})
 		return nil
 	})
@@ -600,6 +666,16 @@ func refuseStrayRecords(root string) ([]Refusal, error) {
 		return nil, fmt.Errorf("cannot walk %s: %w", root, err)
 	}
 	return refusals, nil
+}
+
+// underExperiments says whether a path inside the walked filesystem sits below
+// the one directory an experiment may live in. It is asked of a link so that
+// the refusal covers the tree whose contents this board does not write, and
+// leaves alone the rest of a checkout, where a link is somebody's own
+// arrangement of their own machine and no rule here has anything to say about
+// it.
+func underExperiments(name string) bool {
+	return strings.HasPrefix(name, ExperimentsDir+"/")
 }
 
 // refusePaths holds a record to the paths it names. A path that was removed
@@ -610,7 +686,7 @@ func refuseStrayRecords(root string) ([]Refusal, error) {
 // Name no path you do not intend to resolve. A record naming an example path
 // that was never meant to exist is refused, and that is expected rather than a
 // defect in the check.
-func refusePaths(root, path string, data []byte) []Refusal {
+func refusePaths(fsys fs.FS, root, path string, data []byte) []Refusal {
 	var refusals []Refusal
 
 	for _, named := range pathsNamedInProse(string(data)) {
@@ -626,7 +702,11 @@ func refusePaths(root, path string, data []byte) []Refusal {
 			})
 			continue
 		}
-		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(named))); err == nil {
+		// The name is already a repository-relative path with forward
+		// slashes, which is what a filesystem reads, and the check above has
+		// said it stays inside the root. The one shape left to strip is the
+		// leading ./ the pattern allows, which fs.Stat refuses as a path.
+		if _, err := fs.Stat(fsys, strings.TrimPrefix(named, "./")); err == nil {
 			continue
 		}
 		refusals = append(refusals, Refusal{
@@ -656,17 +736,15 @@ func insideTheRepository(root, named string) bool {
 	return relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }
 
-// depthOf says how many directories below the root a path sits. The root itself
-// is zero.
-func depthOf(root, path string) (int, error) {
-	relative, err := filepath.Rel(root, path)
-	if err != nil {
-		return 0, fmt.Errorf("cannot place %s inside %s: %w", path, root, err)
+// depthOf says how many directories below the root of the walked filesystem a
+// path sits. The root itself is zero. A path inside a filesystem is already
+// relative to it and already uses forward slashes, so there is nothing here to
+// get wrong on a machine that writes paths another way.
+func depthOf(name string) int {
+	if name == "." {
+		return 0
 	}
-	if relative == "." {
-		return 0, nil
-	}
-	return len(strings.Split(filepath.ToSlash(relative), "/")), nil
+	return len(strings.Split(name, "/"))
 }
 
 // refuseQuestion holds a record to having written its question. Record 0008
@@ -849,10 +927,10 @@ func refuseBytes(path string, data []byte) []Refusal {
 // yet. It exists so that a record counted as read is one the walk actually
 // opened, rather than one it saw the name of, since a file that cannot be
 // opened would otherwise be counted as examined.
-func readRecord(path string) ([]byte, error) {
-	data, err := os.ReadFile(path)
+func readRecord(fsys fs.FS, root, name string) ([]byte, error) {
+	data, err := fs.ReadFile(fsys, name)
 	if err != nil {
-		return nil, fmt.Errorf("cannot read %s: %w", path, err)
+		return nil, fmt.Errorf("cannot read %s: %w", at(root, name), err)
 	}
 	return data, nil
 }
