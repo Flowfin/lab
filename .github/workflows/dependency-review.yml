@@ -27,6 +27,44 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Two commits rather than the default one. A pull request checks out
+          # the merge commit, so its first parent is the base the change would
+          # land on, and the step below is a comparison between the two. Nothing
+          # else in this job reads history.
+          fetch-depth: 2
+
+      - name: Say whether there is a dependency change to review
+        # A green tick from the step below has two causes and reports them
+        # identically: a manifest changed and carried no advisory, or no
+        # manifest changed at all. The second is the ordinary case here, and on
+        # a change that touched no manifest the review printed an empty group
+        # and no sentence saying that is what it was. A reader is then told the
+        # dependencies were reviewed when nothing was submitted for review.
+        #
+        # The action decides advisories and this step says what it was handed,
+        # which is why the line is printed around it rather than inside it. It
+        # runs first so that the sentence reaches the log whichever way the
+        # review goes, and a run that refuses says what it refused over.
+        #
+        # The pathspecs are written once and both commands read the same array,
+        # so the set this step reports and the set it compares cannot drift
+        # apart. They are the files the toolchain builds a dependency graph
+        # from, at any depth, so a second module arriving under this root is
+        # read rather than missed.
+        run: |
+          set -euo pipefail
+          graph=(':(glob)**/go.mod' ':(glob)**/go.sum')
+          echo "the dependency graph of this repository is declared in:"
+          git ls-files -- "${graph[@]}"
+          changed=$(git diff --name-only HEAD^1 HEAD -- "${graph[@]}")
+          if [ -n "$changed" ]; then
+            echo "this pull request changes:"
+            echo "$changed"
+            echo "so the review below has a dependency change to compare against the advisory database."
+          else
+            echo "this pull request changes none of them, so the review below has no dependency change to compare and a green result from it means no change was submitted rather than no advisory was found."
+          fi
+
       - name: Dependency review
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
