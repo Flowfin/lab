@@ -53,13 +53,13 @@ today no tick does.
 | `ABI floor build` | Dropped | It exists so a plugin loads against the oldest server it claims to support, and nothing here loads into a host. |
 | `Package (JPRM) / Build package` | Dropped | This repository ships no plugin, so there is no package to build. |
 | `Package (JPRM) / Generate SBOM` | Kept in substance, moved out of the gate | A bill of materials is owed for anything downloadable, and this one is produced by the release build rather than by a check on a pull request. Issue #37 builds it and nothing in this tree produces one today. |
-| `CodeQL` | Kept, retargeted | Static analysis of the runner's own source, in the language record `0001` chose rather than in C#. |
+| `CodeQL` | Kept, retargeted | Static analysis of the runner's own source, in the language record `0001` chose rather than in C#. Two strings arrive here for it, the job's and the code-scanning upload's, and the section on which contexts arrive says which of the two a required set can hold. |
 | `Analyze (csharp)` | Dropped as a name | The language-specific analysis job is replaced by the equivalent for this language rather than carried across under a name that describes nothing here. |
 | `DCO sign-off` | Kept unchanged | Already in the tree, asserting the text at `DCO` on every non-merge commit. |
 | `Deterministic PR-hygiene checks` | Kept, adapted | The class the other checks miss is the pull request itself, and one of the three refusals is this board's own invariant about a record moving with the code it describes. It is in the tree as the `pull request` job, judged in `internal/pullrequest/` and run from `.github/workflows/pull-request.yml`. |
 | `Enforce greppable invariants` | Kept, different invariants | The invariants are properties of this repository's own tracked text, which is a different set from the target's, and they are in `internal/invariants/`. |
 | `Reject Trojan Source Unicode` | Kept unchanged | Already in the tree, and the attack it refuses is a property of source rather than of a language. |
-| `Audit workflows (zizmor)` | Kept unchanged | Already in the tree. The workflow YAML is the other executable thing here and it runs with write scopes. |
+| `Audit workflows (zizmor)` | Kept unchanged | Already in the tree. The workflow YAML is the other executable thing here and it runs with write scopes. The job reports under this name and the code-scanning upload reports under `zizmor`, which is a different context and does not arrive on every pull request. |
 | `prettier` | Kept, split in two | Records here are Markdown, and a whitespace diff on a record hides the sentence that changed. The runner's own source is held to `gofmt` by a job already in the tree; the prose half is issue #50 and nothing in this tree formats Markdown today. |
 | `dependency-review` | Kept unchanged | Already in the tree, refusing a newly introduced dependency carrying a known advisory. |
 
@@ -93,6 +93,134 @@ gh api repos/Flowfin/lab/commits/$(git rev-parse origin/main)/check-runs \
 
 That is the command issue #26 assembles the required set from, and it is the
 one to run before quoting any context name back at this document.
+
+## Which contexts arrive, and on which pull requests
+
+A required context that does not arrive is not a red tick. It is a pull request
+that cannot merge and says nothing about why, so the first response is to wait
+and the second is to make the gate smaller. The names above are therefore
+separated by what produces them and by the commit they were read from before
+any of them goes into a required set. Issue #62 holds this walk.
+
+### The command above reads a commit no pull request produced
+
+`git rev-parse origin/main` resolves a commit on the default branch, which is
+reached by a push. Three workflows in this tree carry no push trigger:
+
+```
+git grep -L 'push:' origin/main -- .github/workflows/
+origin/main:.github/workflows/dco.yml
+origin/main:.github/workflows/dependency-review.yml
+origin/main:.github/workflows/pull-request.yml
+```
+
+So the two kinds of commit report different sets, and the difference runs in
+both directions. Between the head of the default branch and the head of a pull
+request that landed on it, on 2026-08-16:
+
+```
+gh api repos/Flowfin/lab/commits/82c245f/check-runs?per_page=100 \
+  --jq '.check_runs[].name' | sort -u > default-branch.txt
+gh api repos/Flowfin/lab/commits/7374b6b/check-runs?per_page=100 \
+  --jq '.check_runs[].name' | sort -u > pull-request.txt
+
+comm -23 default-branch.txt pull-request.txt
+Scorecard analysis
+
+comm -13 default-branch.txt pull-request.txt
+CodeQL
+DCO sign-off
+dependency-review
+pull request
+zizmor
+```
+
+Three of those five are the pull-request-only workflows above and two are the
+subject of the next section. `Scorecard analysis` is the opposite case and is
+already written down as a permanent absence in `internal/contexts/contexts.go`,
+for the reason the supply-chain paragraph above gives.
+
+A set assembled from a default-branch commit therefore leaves out three
+contexts that every pull request reports, and it offers one that no pull
+request can report. Which commit that command is run against decides what the
+gate gets.
+
+### Two of the names come from an upload rather than from a job
+
+The names on that same pull request head that no job in this tree produced:
+
+```
+gh api repos/Flowfin/lab/commits/7374b6b/check-runs?per_page=100 \
+  --jq '.check_runs[] | select(.app.slug != "github-actions")
+        | "\(.name) is created by \(.app.slug)"' | sort -u
+CodeQL is created by github-advanced-security
+zizmor is created by github-advanced-security
+```
+
+The two rows in the table above carry the target's strings. Here each of them
+is two strings rather than one: the analysis job reports `CodeQL (go)` and the
+code-scanning upload reports `CodeQL`, the audit job reports
+`Audit workflows (zizmor)` and the upload reports `zizmor`. Two of the four are
+written in a workflow file and two are written in no file in this tree, which
+is how `internal/contexts/contexts.go` holds them.
+
+### The upload is conditional and the step that fails on findings is not
+
+```
+git show origin/main:.github/workflows/zizmor.yml | sed -n '76,84p'
+      - name: Upload SARIF
+        # Only upload where the GITHUB_TOKEN can write security events: pushes to main
+        # and same-repo human PRs. Fork and Dependabot pull requests run with a
+        # read-only token, so the upload is skipped there - the gate step below still
+        # runs and blocks on findings. continue-on-error keeps the security gate
+        # independent of the upload: a transient code-scanning upload failure must not
+        # skip the "Fail on actionable findings" step below.
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')
+        continue-on-error: true
+```
+
+That condition has a pull request on this board today that it excludes, so the
+outcome is measured rather than read off the file. On the head of #135, whose
+author the second arm names:
+
+```
+gh api repos/Flowfin/lab/actions/runs/31929377858/jobs \
+  --jq '.jobs[].steps[] | select(.number >= 4 and .number <= 6)
+        | "step \(.number), \(.name): \(.conclusion)"'
+step 4, Audit workflows (SARIF for code scanning): success
+step 5, Upload SARIF: skipped
+step 6, Fail on actionable findings: failure
+```
+
+The upload did not run, and only one of the two names reached that commit:
+
+```
+gh api repos/Flowfin/lab/commits/d18d040/check-runs?per_page=100 \
+  --jq '.check_runs[] | select(.name | test("zizmor"))
+        | "\(.name): \(.conclusion)"' | sort -u
+Audit workflows (zizmor): failure
+```
+
+So the job arrived and reported what the audit found while the upload-derived
+context did not arrive at all, which is the separation the comment in the
+workflow file argues for. It decides one name: `zizmor` cannot be in the
+required set, because requiring it would hold open every pull request the
+condition excludes, with nothing on the pull request saying why. That absence is
+permanent rather than one issue #26 retires, and the job name beside it is
+unaffected.
+
+### What this section does not settle
+
+No pull request from a fork has been opened here. The condition above has two
+arms and only the second was walked: the branch measured above is in this
+repository, and a read-only token is what the two arms have in common rather
+than what makes them one route. `CodeQL` did arrive on that pull request, so
+nothing here says whether it arrives from a fork, and the fork clause of #62 is
+open for it.
+
+The required set is empty, so nothing above is a report of a required context
+that failed to arrive. Every sentence here is about which names a set could
+hold, and none of them is about a gate that bit.
 
 ## The rest of the ruleset
 
