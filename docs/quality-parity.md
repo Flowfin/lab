@@ -75,6 +75,78 @@ requirement, and the job proves the default suite completes with no graphical
 session and as an ordinary user. The target does not carry it because a plugin
 assembly is not run by a contributor on their own machine in the same way.
 
+Three more names this tree declares belong in this section, and until this
+paragraph none of them appeared anywhere in this document, in a row or in a
+sentence. They are declared here:
+
+```
+git grep -h -E '\{Name: "(test \(|vet"|required contexts")' origin/main \
+  -- internal/contexts/contexts.go | sed 's/^[[:space:]]*//'
+{Name: "test (linux/amd64)", Why: theSetIsEmpty, Until: "#26"},
+{Name: "test (windows/amd64)", Why: theSetIsEmpty, Until: "#26"},
+{Name: "test (darwin/arm64)", Why: theSetIsEmpty, Until: "#26"},
+{Name: "vet", Why: theSetIsEmpty, Until: "#26"},
+{Name: "required contexts", Why: theSetIsEmpty, Until: "#26"},
+```
+
+The leading indentation is stripped so that this document carries no tab, which
+`prose-carries-a-tab` refuses in tracked Markdown. Nothing else about the five
+lines is changed.
+
+A name with no verdict here is the shape that costs issue #26 an answer rather
+than a line of prose. The set it assembles is taken from this document, and a
+declared name the document gives no verdict to can be read as kept or as
+dropped with equal justice, so the two readings produce two different gates.
+Each entry below therefore says kept or dropped and why, in the same terms the
+table above uses.
+
+The platform suite. Record `docs/decisions/0012-the-supported-platforms.md`
+gives three of its six platforms a suite run as well as a build, and each of
+the three reports under its own name, so the entries are `test (linux/amd64)`,
+`test (windows/amd64)` and `test (darwin/arm64)`. The target requires a build
+and requires nothing that runs a suite:
+
+```
+gh api repos/Flowfin/jellyfin-plugin-sso/rules/branches/main \
+  --jq '.[] | select(.type=="required_status_checks")
+        | .parameters.required_status_checks[].context' \
+  | grep -E '^(test|vet)' ; echo "exit=$?"
+exit=1
+```
+
+All three are kept and they belong in the required set. The differences record
+`0012` picks those three platforms for, whether the filesystem folds case, what
+separates a path and what a line ending arrives as, are the defects a runner
+that reads a checkout actually has, and a build entry that compiled on a
+platform says nothing about whether the runner reads that platform's tree
+correctly. The target has no equivalent because the artefact it gates is loaded
+by a server rather than run against a working copy.
+
+`vet` is kept, and it belongs in the set at a smaller cost than the suite: one
+job over the whole module rather than three entries on three machines, since
+what it reads is the source rather than the filesystem underneath it. It has no
+counterpart in the command above for the same reason the language-specific
+analysis row does not carry across, which is that the target is written in
+another language and holds its own source to that language's tools.
+
+`required contexts` is kept, and it is the entry a reader is likeliest to find
+absent here rather than wrong, because it is younger than the walk this
+document is built on. The table above reads a ruleset as it answered on
+2026-08-10 and this check landed two days later:
+
+```
+git log -1 --format='%h %ad %s' --date=short --diff-filter=A \
+  -- .github/workflows/contexts.yml
+2b954f5 2026-08-12 Refuse a required context and a check name that disagree (#71)
+```
+
+What it compares is the required set against the check names this tree
+declares, so it is the one entry whose subject is the gate rather than the
+tree. Requiring it is what refuses a set edited into disagreement with the
+workflows, in either direction, and that is the direction no document can cover
+because nothing reads a document. The target has no equivalent and the absence
+is not an argument against carrying one here.
+
 The supply-chain self-audit stays outside the required set, for the same reason
 it is outside the target's. It publishes from the default branch and cannot
 gate a pull request, so requiring it would require a context that never
