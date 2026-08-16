@@ -60,7 +60,7 @@ today no tick does.
 | `Enforce greppable invariants` | Kept, different invariants | The invariants are properties of this repository's own tracked text, which is a different set from the target's, and they are in `internal/invariants/`. |
 | `Reject Trojan Source Unicode` | Kept unchanged | Already in the tree, and the attack it refuses is a property of source rather than of a language. |
 | `Audit workflows (zizmor)` | Kept unchanged | Already in the tree. The workflow YAML is the other executable thing here and it runs with write scopes. The job reports under this name and the code-scanning upload reports under `zizmor`, which is a different context and does not arrive on every pull request. |
-| `prettier` | Kept, split in two | Records here are Markdown, and a whitespace diff on a record hides the sentence that changed. The runner's own source is held to `gofmt` by a job already in the tree; the prose half is issue #50 and nothing in this tree formats Markdown today. |
+| `prettier` | Kept, split in two, and both halves are in the tree | Records here are Markdown, and a whitespace diff on a record hides the sentence that changed. The runner's own source is held to `gofmt` by the `format` job and the prose half is the `prose format` job. Both are kept and both belong in the required set. Neither rewrites anything, which is where the split departs from the target: `prettier` formats and these two refuse, so a departure is a red tick here and a diff there. |
 | `dependency-review` | Kept unchanged | Already in the tree, refusing a newly introduced dependency carrying a known advisory. |
 
 ## What this board adds that the target does not have
