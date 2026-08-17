@@ -217,6 +217,86 @@ contexts that every pull request reports, and it offers one that no pull
 request can report. Which commit that command is run against decides what the
 gate gets.
 
+### One name is reported twice on the same commit
+
+Every command in this document that lists check names deduplicates, and one of
+the names they print once was produced by two runs. On `bd861cf`, the head of
+pull request #145:
+
+```
+gh api repos/Flowfin/lab/commits/bd861cf/check-runs?per_page=100 \
+  --jq '.check_runs[].name' | sort | uniq -d
+Reject Trojan Source Unicode
+
+gh api repos/Flowfin/lab/commits/bd861cf/check-runs?per_page=100 \
+  --jq '.check_runs[] | select(.name=="Reject Trojan Source Unicode")
+        | "suite \(.check_suite.id), \(.conclusion)"'
+suite 86798670354, success
+suite 86798547856, success
+```
+
+The cause is one trigger. Every push trigger in these files names the default
+branch except one:
+
+```
+for f in $(git ls-tree --name-only origin/main .github/workflows/); do
+  s=$(git show "origin/main:$f" | sed -n '/^  push:/{n;s/^ *//;p;}')
+  [ -n "$s" ] && printf '%s %s\n' "$f" "$s"
+done
+.github/workflows/build.yml branches: [main]
+.github/workflows/codeql.yml branches: [main]
+.github/workflows/contexts.yml branches: [main]
+.github/workflows/headless.yml branches: [main]
+.github/workflows/invariants.yml branches: [main]
+.github/workflows/prose.yml branches: [main]
+.github/workflows/records.yml branches: [main]
+.github/workflows/scorecard.yml branches: [main]
+.github/workflows/unicode-guard.yml branches: ["**"]
+.github/workflows/zizmor.yml branches: [ main ]
+```
+
+A branch pushed for a pull request therefore starts that one workflow twice,
+and both runs report under its job name. The file gives the reason its trigger
+is wide, and the reason is about which branches the guard covers rather than
+about the gate:
+
+```
+git show origin/main:.github/workflows/unicode-guard.yml | sed -n '3,11p'
+on:
+  # Every branch and every PR: the guard is a cheap read-only scan, so there is no
+  # reason to narrow it to main, and it covers whatever branches this repository
+  # grows later without being edited again.
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+```
+
+The two runs do not read the same tree, and that is what makes this more than a
+repeated line. Each checkout says what it took, and the answers differ:
+
+```
+gh run view 32017539721 --log \
+  | sed -n 's/.*\(git checkout --progress --force .*\)/\1/p'
+git checkout --progress --force -B parity/one-job-asks-the-platform-and-the-fork-half-is-unwalked refs/remotes/origin/parity/one-job-asks-the-platform-and-the-fork-half-is-unwalked
+
+gh run view 32017585271 --log \
+  | sed -n 's/.*\(git checkout --progress --force .*\)/\1/p'
+git checkout --progress --force refs/remotes/pull/145/merge
+```
+
+The first read the branch and the second read the branch merged into the base.
+A tree that carries none of these characters on the branch and carries one once
+merged separates the two runs, which is the case this particular guard exists
+for one merge earlier.
+
+`Reject Trojan Source Unicode` is a row the table above keeps, so it is a
+candidate for the required set. What a merge does when two check runs answer to
+one name is platform behaviour that nothing in this tree states, and the set
+here is empty, so it cannot be measured on this board today either. Issue #26
+assembles the set and its first clause meets this, because the command it
+assembles from prints one line for the two.
+
 ### Two of the names come from an upload rather than from a job
 
 The names on that same pull request head that no job in this tree produced:
