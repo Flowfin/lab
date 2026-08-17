@@ -353,6 +353,75 @@ reader can take from them. None of them says anything about
 what a job does once it has started, so a context that arrives having done
 nothing is a different question and is not answered here.
 
+### One job can start and still be unable to do its work
+
+The readings above stop at the moment a job begins. One job here has a second
+failure after that moment, because half of what it compares is a live setting
+on the platform rather than a file in the checkout, so it has to ask. No other
+workflow in this tree asks anything:
+
+```
+git grep -n 'gh api' origin/main -- .github/workflows/
+origin/main:.github/workflows/contexts.yml:93:          if ! gh api "repos/${REPOSITORY}/rules/branches/${DEFAULT_BRANCH}" \
+```
+
+That reads the run blocks these files carry, so it says which workflow asks the
+platform a question in a script this repository writes. What an action reaches
+once it has started is not readable from here and the command says nothing
+about it.
+
+The job reports as `required contexts`, which the section above keeps and puts
+in the required set. What it does when the answer does not arrive is written
+into the step rather than left to the shell:
+
+```
+git show origin/main:.github/workflows/contexts.yml | sed -n '92,100p'
+          set -euo pipefail
+          if ! gh api "repos/${REPOSITORY}/rules/branches/${DEFAULT_BRANCH}" \
+                --jq '.[] | select(.type=="required_status_checks")
+                      | .parameters.required_status_checks[].context' > required.txt; then
+            echo "::error::The ruleset on ${DEFAULT_BRANCH} could not be read, so this run could not judge whether the gate and the tree agree. That is not the same as them agreeing."
+            exit 1
+          fi
+          echo "the ruleset on ${DEFAULT_BRANCH} requires $(wc -l < required.txt) context(s):"
+          cat required.txt
+```
+
+So this route ends in a red context carrying its reason rather than in a
+context that never arrives, which is the better of the two failures and is
+still a pull request held open by something other than the change on it. An
+empty answer is not that failure. The count is printed and the run carries on,
+which is the state this board is in today.
+
+One of the two things a fork run brings is measurable here already. A
+Dependabot pull request runs with a read-only token, which is what the upload
+condition quoted earlier in this section names it for, and #135 is one. On its
+head the job ran and the fetch answered:
+
+```
+gh api repos/Flowfin/lab/commits/d18d040/check-runs?per_page=100 \
+  --jq '.check_runs[] | select(.name=="required contexts")
+        | "\(.name): \(.conclusion)"'
+required contexts: success
+
+gh run view 31929377870 --log \
+  | sed -n 's/.*\(the ruleset on main requires .*\)/\1/p'
+the ruleset on main requires 0 context(s):
+```
+
+A read-only token reads this board's ruleset, so that is not what would stop a
+run from a fork. What is left is the other thing, which is that the token is
+issued against a different repository. `github.repository` names this board on
+a pull request from a fork, so the fetch asks about this board whichever side
+the branch sits on, and whether a token issued that way may read this board's
+ruleset is platform behaviour that nothing in this tree states and nothing
+above measures.
+
+`required contexts` therefore belongs in the fork clause of #62, and it is
+there for a different reason from the two names already in it. Those two are
+created by an upload and turn on a write scope. This one is a job that always
+starts, and what is open is whether the answer it needs arrives.
+
 ### What this section does not settle
 
 No pull request from a fork has been opened here. The condition above has two
@@ -360,7 +429,8 @@ arms and only the second was walked: the branch measured above is in this
 repository, and a read-only token is what the two arms have in common rather
 than what makes them one route. `CodeQL` did arrive on that pull request, so
 nothing here says whether it arrives from a fork, and the fork clause of #62 is
-open for it.
+open for it. It is open for `required contexts` as well, for the reason the
+subsection above gives rather than for this one.
 
 The required set is empty, so nothing above is a report of a required context
 that failed to arrive. Every sentence here is about which names a set could
