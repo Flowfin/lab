@@ -281,6 +281,78 @@ condition excludes, with nothing on the pull request saying why. That absence is
 permanent rather than one issue #26 retires, and the job name beside it is
 unaffected.
 
+### None of these workflows narrows itself to some pull requests
+
+A context that arrives on some pull requests and not on others is what this
+section is written against, and three of the ways to build one are readable in
+these files rather than walked. The readings below were made at `1fc6961` and
+cover every workflow file in the tree at that commit.
+
+A path filter is the ordinary way it happens, and no workflow here carries one:
+
+```
+git grep -n 'paths:\|paths-ignore:' origin/main -- .github/workflows/ ; echo "exit=$?"
+exit=1
+```
+
+A trigger narrowed to some branches is the same failure by a second route, and
+three of these files carry no branch filter that reads every branch:
+
+```
+git grep -L 'branches: \[ *"\*\*" *\]' origin/main -- .github/workflows/
+origin/main:.github/workflows/dco.yml
+origin/main:.github/workflows/dependency-review.yml
+origin/main:.github/workflows/scorecard.yml
+```
+
+The third is the supply-chain self-audit, which declares no pull-request
+trigger at all and is outside the required set already. Neither of the other
+two narrows anything. `dependency-review.yml` writes no branch filter under any
+of its triggers, which is every branch:
+
+```
+git grep -n 'branches:' origin/main -- .github/workflows/dependency-review.yml ; echo "exit=$?"
+exit=1
+```
+
+`dco.yml` carries the only type filter in these files:
+
+```
+git grep -n 'types:' origin/main -- .github/workflows/
+origin/main:.github/workflows/dco.yml:13:    types: [opened, synchronize, reopened]
+```
+
+The claim about the three types it names is that they are the three the
+platform runs a pull-request workflow for when a file names none, so writing
+them out removes no pull request. That is the platform's documented default
+rather than something this tree says, and nothing here measures it. What sits
+beside it is that `DCO sign-off` is among the contexts the pull-request head
+compared above reported, which shows the workflow runs on an ordinary pull
+request and shows nothing about one that arrives another way.
+
+A job skipped by a condition is the third, and two of these files carry one at
+all:
+
+```
+git grep -c '^\s*if:' origin/main -- .github/workflows/
+origin/main:.github/workflows/scorecard.yml:1
+origin/main:.github/workflows/zizmor.yml:1
+```
+
+Neither reaches a name the table above keeps. The first is a job-level
+condition on the supply-chain self-audit, which the paragraph above already
+places outside the required set for a reason of its own. The second is the
+upload condition quoted earlier in this section, indented under a step rather
+than a job, and the step that fails on findings sits after it carrying no
+condition.
+
+What these commands do not reach. They read the path filters, the branch and
+type filters and the `if:` keys, which is what those three are written with in
+these files today, and a fourth route written some other way is not something a
+reader can take from them. None of them says anything about
+what a job does once it has started, so a context that arrives having done
+nothing is a different question and is not answered here.
+
 ### What this section does not settle
 
 No pull request from a fork has been opened here. The condition above has two
