@@ -11,20 +11,13 @@
 # regular persona is the one zizmor documents for CI ("high-signal, low-noise,
 # actionable"). The pedantic persona is deliberately NOT used to gate: it adds
 # low-severity hygiene findings (undocumented permissions, missing concurrency,
-# unnamed jobs) that are stylistic, not security-blocking, and some are
-# context-blind (it would demand run-cancelling concurrency on a publishing
-# workflow, which must never be cancelled mid-publish). Those findings are not
-# gated here, and no issue on this tracker collects them today.
-#
-# A pin comment that disagrees with the commit beside it is NOT in that set. This
-# line listed it as a pedantic hygiene finding and that was wrong: the regular
-# persona reports ref-version-mismatch at medium, so the step below fails the
-# build on one. Two of them did exactly that on every pull request against this
-# board, which is what corrected this sentence.
+# pin-comment mismatches, unnamed jobs) that are stylistic, not security-blocking,
+# and some are context-blind (it would demand run-cancelling concurrency on a
+# publishing workflow, which must never be cancelled mid-publish). Those findings
+# are not gated here, and no issue on this tracker collects them today.
 #
 # Rule for future workflow changes: every new or edited workflow must pass this
-# gate before merge. Keep actions SHA-pinned, comment each pin with the exact
-# version its commit is tagged as rather than the major, keep checkout on
+# gate before merge. Keep actions SHA-pinned, keep checkout on
 # persist-credentials:false, grant write permissions per job (never
 # workflow-level), and never restore a cache in a job that publishes a release.
 name: Workflow Security Analysis
@@ -82,7 +75,7 @@ jobs:
         # skip the "Fail on actionable findings" step below.
         if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@d1ba80a13dd99fba24a470575428917156a28b43 # v4.37.5
+        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         with:
           sarif_file: results.sarif
           category: zizmor

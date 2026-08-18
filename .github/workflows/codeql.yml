@@ -23,22 +23,6 @@
 # top and granted per job, every action pinned to a commit with its version in a
 # comment, and checkout without persisted credentials. The one write scope here
 # is security-events, which is what uploading the results needs and nothing more.
-#
-# The version in that comment is the exact one the pinned commit is tagged as,
-# never the major. Both spellings leave the same commit running, so the whole
-# difference is in what the comment claims. A comment reading v4 is a claim about
-# a reference upstream moves, and it stops being true on the day upstream tags a
-# release without anybody here touching a file; an exact version is a claim about
-# the commit written next to it, which cannot go stale on its own. The two steps
-# below carried a major until this comment landed, and were the only two sites in
-# this tree that did. The command that says so prints nothing now, and printing
-# nothing is the state to keep it in:
-#
-#   git grep -nE 'uses: .*@[0-9a-f]{40} # v[0-9]+$' -- .github/workflows/
-#
-# The audit in zizmor.yml reads the comment against the tags the pinned commit
-# carries and fails the build on a mismatch, so the spelling is held by a check
-# rather than by memory.
 name: CodeQL
 
 on:
