@@ -140,12 +140,7 @@ var Absences = []Absence{
 	{Name: "format", Why: theSetIsEmpty, Until: "#26"},
 	{Name: "CodeQL (go)", Why: theSetIsEmpty, Until: "#26"},
 	{Name: "CodeQL", Why: theSetIsEmpty, Until: "#26"},
-	{
-		Name: "zizmor",
-		Why: "this name is created by the code-scanning upload in zizmor.yml rather than by the job, and that step is skipped wherever the token cannot write security events, so requiring it would hold open every pull request the condition excludes with nothing on the pull request saying why. " +
-			"The job reports under Audit workflows (zizmor), which is a different string, arrives on those pull requests and carries the step that fails on findings",
-		Until: "",
-	},
+	{Name: "zizmor", Why: theSetIsEmpty, Until: "#26"},
 	{Name: "DCO sign-off", Why: theSetIsEmpty, Until: "#26"},
 	{Name: "dependency-review", Why: theSetIsEmpty, Until: "#26"},
 	{Name: "headless and unelevated", Why: theSetIsEmpty, Until: "#26"},
