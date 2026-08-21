@@ -279,6 +279,26 @@ func TestAnAbsenceCarriesAReason(t *testing.T) {
 	}
 }
 
+// TestAPermanentAbsenceDoesNotRestOnAReasonThatEnds refuses an entry that says
+// its absence is permanent and gives the reason that stops being true first.
+//
+// The two fields are read together. An empty Until says the absence survives the
+// day the required set is assembled, and theSetIsEmpty says the name is outside
+// the set because the set has no members, which is exactly the condition that day
+// ends. An entry carrying both is a decision resting on a debt, and it reads as
+// settled to whoever assembles the set.
+//
+// The near-miss this is written for is one field: an absence whose reason turns
+// out to be its own rather than the shared one is made permanent by emptying
+// Until, and the reason above it is left as it was.
+func TestAPermanentAbsenceDoesNotRestOnAReasonThatEnds(t *testing.T) {
+	for _, absence := range Absences {
+		if absence.Until == "" && absence.Why == theSetIsEmpty {
+			t.Errorf("the absence %q is written as permanent and its reason is that the required set is empty, which is the condition that ends when the set is assembled, so the entry says the absence outlives the only thing it rests on", absence.Name)
+		}
+	}
+}
+
 // TestAJobWithNoNameOfItsOwnIsNotedRatherThanRefused pins the one place this
 // package answers with a note. The platform reports the job id where a job
 // carries no name, so such a job is legal and its name is still a gate string, and
