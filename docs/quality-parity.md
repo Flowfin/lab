@@ -141,9 +141,15 @@ requires it to stay empty, so nothing here adds a second rule about it.
 ### The pull-request rule, parameter by parameter
 
 Every parameter the third command prints, with the target's value beside it. On
-2026-08-10 all but the first held the same value on both boards. A setting left
-at its default and a setting chosen deliberately look identical afterwards,
-which is why every row carries a reason and not only a verdict.
+2026-08-10 all but the first held the same value on both boards, and that is
+still the reading on 2026-08-21. A setting left at its default and a setting
+chosen deliberately look identical afterwards, which is why every row carries a
+reason and not only a verdict.
+
+The table listed eight rows and the command prints nine names. Which of the two
+that is, a parameter the platform started printing after the table was written
+or a row the walk missed on the day, is not readable from here, and the last row
+below is the one that was absent either way.
 
 | Parameter | Here | Target | Verdict |
 | --- | --- | --- | --- |
@@ -155,6 +161,7 @@ which is why every row carries a reason and not only a verdict.
 | `require_code_owner_review` | `false` | `false` | Kept. There is no `CODEOWNERS` file in this tree, so requiring a code-owner review here would require an approval nothing can name. |
 | `dismissal_restriction` | `{"allowed_actors":[],"enabled":false}` | The same | Kept. It restricts who may dismiss a review, and there is no required review to dismiss. |
 | `required_reviewers` | `[]` | `[]` | Kept, for the reason in the row above. |
+| `require_extra_approval_for_unattributed_changes` | `true` | `true` | Kept, and it is the row to read carefully. The four rows above turn on a review being required, and this one is written to ask for an approval where a change carries commits the pull request's author is not credited with, so it is the only parameter here that could ask for one at a count of zero. Whether it does is a statement about the platform and no command in this walk answers it, so nothing is claimed. It has never been observed to hold a merge on this board. |
 
 ### Why the merge methods are not a style preference
 
