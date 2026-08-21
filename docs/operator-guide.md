@@ -148,16 +148,27 @@ anything in the tree. Three ways to reach it, each printing to standard error:
 
     ./lab frobnicate
     lab: unknown verb "frobnicate"
+    (and then the help text, because the verb is not one it has)
 
     ./lab
     (the help text, because no verb was given)
+
+The help text is described rather than pasted in both of those, because a copy
+of it here drifts against the runner that prints it, and the runner is the
+thing a reader is checking.
 
 `3` is not a code this command returns. It belongs to the integration-hardware
 harness under `internal/hardware`, which is asked for separately, and it is
 declared where its only producer is:
 
-    git grep -n 'ExitAskedAndDeliveredNothing = ' -- internal/hardware
-    internal/hardware/hardware.go:45:const ExitAskedAndDeliveredNothing = 3
+    git grep 'ExitAskedAndDeliveredNothing = ' -- internal/hardware
+    internal/hardware/hardware.go:const ExitAskedAndDeliveredNothing = 3
+
+That command carries no line number on purpose. With `-n` the paste names a
+line rather than a declaration, and an edit anywhere above the constant moves
+the line without changing anything the sentence claims, so the quotation goes
+stale while the claim it supports stays true. The file and the declaration are
+what the claim rests on and neither of them moves.
 
 So the record fixes four codes, `lab` returns three of them, and a caller
 keyed on any of the four is reading that record whether or not anybody said so.
