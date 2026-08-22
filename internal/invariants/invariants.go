@@ -497,7 +497,7 @@ func pathsLeg(root string, texts []textFile) (Leg, []Refusal) {
 }
 
 // pathsNamedIn returns every repository-relative path one document names, by
-// both readings, each once. The two readings are joined here rather than
+// all three readings, each once. The readings are joined here rather than
 // refused separately so that one property is produced at one site: a document
 // that writes a path in a sentence and links it as well is one dead pointer and
 // is worth one refusal.
@@ -506,6 +506,13 @@ func pathsLeg(root string, texts []textFile) (Leg, []Refusal) {
 // join uses the document's own directory and not the root. docs/privacy.md
 // links supply-chain.md and means docs/supply-chain.md; resolving that against
 // the root would refuse the file that is there and pass the one that is not.
+//
+// The third reading is the one that reaches a document under docs/ naming a
+// file at the root, which is written ../NAME and is the only way it can be
+// written. That target carries a slash, so the reading above hands it on, and
+// it opens with two full stops, so the prose pattern never had it. It was the
+// shape both of them sat either side of, and until it was read a link nobody
+// could follow was the one that passed.
 func pathsNamedIn(document textFile) []string {
 	named := check.PathsNamedInProse(document.text)
 
@@ -526,7 +533,32 @@ func pathsNamedIn(document textFile) []string {
 		seen[beside] = true
 		named = append(named, beside)
 	}
+
+	for _, target := range check.LinkTargetsAboveTheirDocument(document.text) {
+		above := path.Join(directory, target)
+		if outsideTheTree(above) {
+			// The target climbs past the root of the checkout. Whether a
+			// file out there exists is not a question this tree answers,
+			// and joining it to the root anyway would ask the filesystem
+			// about a path this repository does not hold. It is left alone
+			// for the same reason a target with a scheme in it is.
+			continue
+		}
+		if seen[above] {
+			continue
+		}
+		seen[above] = true
+		named = append(named, above)
+	}
 	return named
+}
+
+// outsideTheTree says whether a path that has already been cleaned still points
+// above the root it was resolved from. path.Join collapses what it can, so what
+// is left leading with a pair of full stops is what could not be collapsed, and
+// a target that resolves to the root itself names no file either.
+func outsideTheTree(cleaned string) bool {
+	return cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../")
 }
 
 // isOwnDocument says whether a path is one of this repository's own documents.
