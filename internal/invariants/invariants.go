@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -460,6 +461,15 @@ func lineOf(text string, offset int) int {
 // function in the record package, rather than through a second copy of the
 // pattern. Two copies of a rule drift, and the one that drifts is the copy
 // nobody is looking at.
+//
+// A file at the root is reached by the second reading rather than by that one.
+// The prose pattern requires a leading segment naming a directory of this tree,
+// so LICENSE, README.md, DCO and the rest are outside it wherever a document
+// writes them, and this leg was exact on a path one directory deep and blind on
+// a path at the root. What separates the two cases is a link: a name inside one
+// is somebody saying they expect a file to be there, and a name in a sentence is
+// a word. So a link target with no directory in it is joined to the directory
+// its own document sits in and resolved, and a bare word is left alone.
 func pathsLeg(root string, texts []textFile) (Leg, []Refusal) {
 	var documents []textFile
 	for _, file := range texts {
@@ -472,7 +482,7 @@ func pathsLeg(root string, texts []textFile) (Leg, []Refusal) {
 	var refusals []Refusal
 
 	for _, document := range documents {
-		for _, named := range check.PathsNamedInProse(document.text) {
+		for _, named := range pathsNamedIn(document) {
 			if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(named))); err == nil {
 				continue
 			}
@@ -484,6 +494,39 @@ func pathsLeg(root string, texts []textFile) (Leg, []Refusal) {
 		}
 	}
 	return leg, refusals
+}
+
+// pathsNamedIn returns every repository-relative path one document names, by
+// both readings, each once. The two readings are joined here rather than
+// refused separately so that one property is produced at one site: a document
+// that writes a path in a sentence and links it as well is one dead pointer and
+// is worth one refusal.
+//
+// A link target is relative to the document that carries it, which is why the
+// join uses the document's own directory and not the root. docs/privacy.md
+// links supply-chain.md and means docs/supply-chain.md; resolving that against
+// the root would refuse the file that is there and pass the one that is not.
+func pathsNamedIn(document textFile) []string {
+	named := check.PathsNamedInProse(document.text)
+
+	directory := path.Dir(document.relative)
+	seen := make(map[string]bool, len(named))
+	for _, already := range named {
+		seen[already] = true
+	}
+
+	for _, target := range check.LinkTargetsWithoutADirectory(document.text) {
+		beside := target
+		if directory != "." {
+			beside = directory + "/" + target
+		}
+		if seen[beside] {
+			continue
+		}
+		seen[beside] = true
+		named = append(named, beside)
+	}
+	return named
 }
 
 // isOwnDocument says whether a path is one of this repository's own documents.
