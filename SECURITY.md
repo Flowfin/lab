@@ -122,9 +122,11 @@ downloaded and none to have been tampered with.
 A refusal you disagree with is not a vulnerability, and neither is a check that
 is too strict about a legitimate tree, nor a supply-chain score lower than you
 expected, which `docs/supply-chain.md` already triages check by check. Those
-are issues and they are welcome as issues. Nor is the missing licence file,
-which is real and is a legal problem rather than a security one, open on issue
-#46.
+are issues and they are welcome as issues. Nor is anything about the licence.
+[LICENSE](LICENSE) at the root carries the GNU Affero General Public License
+version 3, and what this repository declares to the checks that read a licence
+is still empty and open on issue #47. Both of those are legal or housekeeping
+questions rather than security ones.
 
 ## What a reporter gets
 

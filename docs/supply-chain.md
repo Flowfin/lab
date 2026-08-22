@@ -166,10 +166,23 @@ untrusted. Reopen this line when #61 lands rather than before.
 
 `license file not detected`, with `Warn: project does not have a license file`
 
-Correct, and it is the most consequential zero here. Without a licence file,
-default copyright applies and nobody has permission to reuse anything in this
-repository. Which licence is an open question on issue #46, and issue #47 lands
-the file once that is answered. This score should go to 10 in the same change.
+Correct for the run above, and the tree has moved since. `LICENSE` is at the
+root of the default branch carrying the GNU Affero General Public License
+version 3, restored in `36442adad2d9dc66032cf3d29ab070697650db5c` and merged as
+`bb0de9cbcc79015054e3da10cef44a8ae3669b01`, so the reasoning that stood here,
+that default copyright applies and nobody may reuse anything, no longer follows.
+The audit has not been re-run for this document and the score above is left as
+the run reported it. What the platform holds today is a different reading and is
+one command:
+
+```
+gh api 'repos/Flowfin/lab/code-scanning/alerts?tool_name=Scorecard&per_page=100' \
+  --jq '.[] | select(.rule.id=="LicenseID") | .state'
+fixed
+```
+
+What the file being there does not settle is the licence this repository
+declares to its own checks, which is empty and open on issue #47.
 
 ### Maintained, 0
 
