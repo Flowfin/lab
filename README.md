@@ -60,3 +60,9 @@ There is no licence file. That is not a neutral state, since without one nobody
 has permission to reuse anything here, and it is the first entry of the open
 question that collects the decisions this plan does not take. Until it is
 answered, treat everything on this board as readable and not as reusable.
+
+## License
+
+AGPL-3.0, copyright 2026 Nils Lehnen.
+
+The full text is in [LICENSE](LICENSE).
