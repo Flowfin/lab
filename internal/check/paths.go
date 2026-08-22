@@ -63,3 +63,54 @@ func LinkTargetsWithoutADirectory(text string) []string {
 	}
 	return named
 }
+
+// LinkTargetsAboveTheirDocument returns the markdown link targets a text
+// carries that step out of the document's own directory, in the order it names
+// them, each once. A caller joins each one to the directory its document sits
+// in and gets a repository-relative path.
+//
+// This is a third reading rather than either of the two above growing, and the
+// reason is that both of them are already exact about a different population.
+// PathsNamedInProse requires a leading segment naming a directory of this tree,
+// and `..` is not one; widening it would make it read a pair of full stops in a
+// sentence. LinkTargetsWithoutADirectory skips a target carrying a slash, which
+// is what its name says it returns and what its own comment hands to the prose
+// pattern. A target spelled `../NAME` falls between the two: it is inside
+// parentheses, so the intent is there, and it carries a slash, so the reading
+// that resolves intent will not touch it.
+//
+// The shape it is for is a document under docs/ naming a file at the root,
+// which is the only way one can write that link. `docs/operator-guide.md`
+// pointing at `../LICENSE` is a reader being told a file is there, and until
+// this existed nothing in this tree read that link at all.
+//
+// WHAT THE CALLER STILL OWES. The target is relative to the document and this
+// returns it as written, so a caller that resolves it against the root instead
+// resolves the wrong thing. It also has to decide what to do with a target that
+// climbs past the root of the tree, because this returns that one too: `../..`
+// from a document one directory down names something outside the checkout, and
+// whether such a file exists is not a question any reading of this tree
+// answers.
+func LinkTargetsAboveTheirDocument(text string) []string {
+	var named []string
+	seen := make(map[string]bool)
+
+	for _, match := range linkTarget.FindAllStringSubmatch(text, -1) {
+		target := match[1]
+		if cut := strings.IndexAny(target, "#?"); cut >= 0 {
+			target = target[:cut]
+		}
+		if !strings.HasPrefix(target, "../") {
+			continue
+		}
+		// A scheme or a backslash is left alone for the same reasons the
+		// reading above leaves them alone: one is somebody else's server
+		// and the other is not how a path is written here.
+		if strings.ContainsAny(target, ":\\") || seen[target] {
+			continue
+		}
+		seen[target] = true
+		named = append(named, target)
+	}
+	return named
+}
