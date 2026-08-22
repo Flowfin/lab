@@ -201,9 +201,11 @@ is already on. Only the measurement is written down. Nothing here uploads,
 phones home, or reports usage, and there is no telemetry to turn off because
 there is none to turn on.
 
-There is no licence file in this repository. The question is open, so nothing
-here grants permission to reuse what you find, and that is the state rather than
-an oversight this page can repair.
+[LICENSE](../LICENSE) at the root of the checkout is the GNU Affero General
+Public License version 3, and those are the terms this tree carries. What is
+still open is the licence this repository declares to its own checks, which is
+empty on issue #47, so a run here that says nothing about the licence is not
+saying the file is absent.
 
 ## The record format may change
 
