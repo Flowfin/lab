@@ -32,13 +32,14 @@ is always the half that gets left out. A reader on the other side is deciding
 whether the result holds for their case, and the fastest way to answer that is
 the list of cases it was never put to.
 
-The licence the code carries out. This board declares no licence today, so
-there is nothing to inherit and the terms have to be settled before anything
-leaves. Entry one of issue #46 is where that is answered, and entry three asks
-who may place a contributor's work under another board's terms. Until both
-carry an answer, the honest state of this line is that a hand-over of somebody
-else's work cannot be completed, and writing anything else into it would be
-inventing permission nobody gave.
+The licence the code carries out. [LICENSE](../LICENSE) at the root of this
+board is the GNU Affero General Public License version 3, so that is what the
+code carries out and the receiving side inherits terms rather than finding
+none. Which licence this repository declares to the checks that read one is a
+separate thing and is open on issue #47. Entry three of issue #46 asks who may
+place a contributor's work under another board's terms and carries no answer,
+so a hand-over of somebody else's work still cannot be completed, and writing
+anything else into this line would be inventing permission nobody gave.
 
 What would have to change for this to be production code, written by whoever
 did the work. They know and nobody else does. An experiment is allowed to cut
