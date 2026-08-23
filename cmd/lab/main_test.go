@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -212,6 +214,36 @@ func TestTheDocumentedCodesAreTheNumbersTheRecordFixes(t *testing.T) {
 	for name := range want {
 		if _, ok := codes[name]; !ok {
 			t.Errorf("record 0011 names %s and this command has no constant for it", name)
+		}
+	}
+}
+
+// TestHelpNamesTheDocumentsAnOperatorIsOwed holds the last paragraph of the
+// usage text to the three files it points at. An operator who reads that
+// paragraph and then looks for one of the files is the reader this asserts for,
+// and both halves of the walk they make are here: that the text names the file,
+// and that the file is in the tree to be found.
+//
+// The second half is the one that earns its place. A pointer in the runner is
+// outside the subject of the invariants paths leg, which reads the files at the
+// root and everything under docs/ and holds those to the paths they name. So a
+// document deleted or moved under this paragraph reddens nothing anywhere else,
+// and a binary would go on telling operators to read a file that is not there.
+//
+// What it does not judge is whether any of the three says what it should. That
+// is a reading of prose and no test here makes it.
+func TestHelpNamesTheDocumentsAnOperatorIsOwed(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if got := run([]string{"help"}, &out, &errOut, ordinary(realWalk)); got != exitClean {
+		t.Fatalf("exit code %d, want %d", got, exitClean)
+	}
+
+	for _, document := range documentsAnOperatorIsOwed {
+		if !strings.Contains(out.String(), document) {
+			t.Errorf("the help output does not name %s:\n%s", document, out.String())
+		}
+		if _, err := os.Stat(filepath.Join("..", "..", filepath.FromSlash(document))); err != nil {
+			t.Errorf("the help output names %s and it is not in this tree: %v", document, err)
 		}
 	}
 }
