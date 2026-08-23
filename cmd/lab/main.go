@@ -50,6 +50,31 @@ const (
 	exitCannot = 2
 )
 
+// The three documents the last paragraph of the usage text names. They are
+// named rather than restated, because a paraphrase printed by a binary somebody
+// downloaded months ago is a copy of a document that has since moved on, and the
+// reader has no way to tell which of the two they are holding.
+//
+// TWO LIMITS THAT BELONG HERE RATHER THAN ONLY IN THE ISSUE. A notice is not a
+// control. Printing it stops nothing, and it should not be counted as a thing
+// that prevents misuse when somebody later asks what does. And a notice an
+// operator has to run a verb to see is weaker than one sitting in the download
+// beside the binary, because the operator who most needs it is the one who runs
+// the thing without asking it for help first. Both routes exist for that
+// reason rather than either alone; the download half is issue #36 and has no
+// archive to be carried in yet.
+//
+// Nothing outside this package holds these strings to the tree. The paths leg
+// of the invariants scan reads this repository's own documents, which is the
+// files at the root and everything under docs/, and a path named inside the
+// runner is outside that subject by the leg's own reckoning. So the guard is
+// the test beside this declaration and there is no second one.
+var documentsAnOperatorIsOwed = []string{
+	"NOTICE.md",
+	"LICENSE",
+	"docs/privacy.md",
+}
+
 const usage = `lab reads this repository and reports what it examined.
 
     lab check [path]   walk the tree at path, default ".", and report
@@ -58,6 +83,10 @@ const usage = `lab reads this repository and reports what it examined.
     lab help           print this text
 
 lab writes nothing to the tree it reads.
+
+NOTICE.md says what this program is for, LICENSE carries the terms it is under,
+and docs/privacy.md says what stays on the host. Reading them is on you; this
+text only says where they are.
 `
 
 // THIS IS WHERE THE RUNNER READS THE TIME, and it is read once. Everything
