@@ -21,11 +21,17 @@ const (
 	// out of another experiment and half edited.
 	RecordSlugIsNotALegalSlug = "record-slug-is-not-a-legal-slug"
 
-	// TwoExperimentsShareASlug refuses two experiments declaring one slug once
-	// case is ignored. A slug is what a reader holds when they walk back from
-	// a quoted result to the experiment that produced it, and two experiments
-	// answering to it means that walk lands in the wrong place or nowhere.
-	TwoExperimentsShareASlug = "two-experiments-share-a-slug"
+	// RecordSlugDisagreesWithItsDirectory refuses a record whose Slug names a
+	// directory other than the one the record sits in. The slug is how a
+	// reader gets from a quoted result back to the experiment that produced
+	// it, and the promotion section makes that walk matter to somebody on
+	// another board. A disagreement breaks the walk silently, because both
+	// halves exist and only their agreement is missing.
+	//
+	// The message names both strings. Which of the two is wrong decides the
+	// repair, and nothing in the tree can tell whether the field was mistyped
+	// or the directory was misnamed.
+	RecordSlugDisagreesWithItsDirectory = "record-slug-disagrees-with-its-directory"
 )
 
 // legalSlug is the shape record 0014 fixes: lower case letters, digits and
@@ -57,60 +63,76 @@ func refuseSlug(slug string) string {
 	return ""
 }
 
-// refuseSlugs holds every experiment to the shape and to being the only one
-// answering to its slug.
+// refuseSlugs holds every experiment to the shape and holds a record's Slug to
+// naming the directory the record sits in.
 //
-// WHERE THE THIRD RULE CAN AND CANNOT BITE, because a green run is otherwise
-// read as more than it is. Slugs are compared with case ignored, and under the
-// shape above two legal slugs can never differ by case alone, so the comparison
-// bites today only on two experiments declaring the same slug exactly. The
-// case-folding half is a guard for a pair where at least one side is already
-// refused for its shape, and for the day the shape is argued again. That is why
-// the fixture proving this rule is a pair of records declaring one slug rather
-// than a pair differing in case: a pair differing in case trips two rules, and
-// a fixture tripping two proves neither cleanly.
+// WHAT THE THIRD RULE REPLACED. Until this function was rewritten, the third
+// rule here was two-experiments-share-a-slug, which refused two experiments
+// declaring one slug once case was ignored. It is retired rather than kept
+// beside the agreement rule, because the agreement rule subsumes it: two
+// directories under experiments/ cannot share a name, so two experiments can
+// only answer to one slug when at least one of their records declares a slug
+// that is not its own directory's name, which is what this refuses. Keeping
+// both would have meant every tree that tripped the sharing rule tripping the
+// agreement rule as well, and a fixture tripping two rules proves neither
+// cleanly. The retirement is deliberate and by name; issue #54 is where it was
+// argued and decided.
+//
+// WHERE THE SUBSUMPTION STOPS, because a green run is otherwise read as more
+// than it is. The comparison below is between two slugs, so it is made only
+// where the directory name and the declared field are both legal slugs. Where
+// either is not, the tree is already refused for that shape and this rule says
+// nothing, so a pair answering to one slug from a directory that is not a slug
+// is refused for the directory's name and never for the sharing. The tree is
+// red either way and the message points somewhere else, which is the whole of
+// what the retirement cost.
+//
+// Case is not folded here and the retired rule folded it. Under the shape
+// above a legal slug carries no upper case, so two legal slugs can never differ
+// by case alone, and an exact comparison between two strings that have both
+// passed refuseSlug is the same comparison a folded one would make. Folding
+// would only reach a pair where one side is already refused for its shape.
 func refuseSlugs(experiments []experiment) []Refusal {
 	var refusals []Refusal
-	declared := make(map[string]experiment)
 
 	for _, exp := range experiments {
-		if reason := refuseSlug(exp.directory); reason != "" {
+		directoryReason := refuseSlug(exp.directory)
+		if directoryReason != "" {
 			refusals = append(refusals, Refusal{
 				Property: ExperimentDirectoryIsNotALegalSlug,
 				Subject:  exp.path,
-				Detail:   fmt.Sprintf("its directory is named %q and %s", exp.directory, reason),
+				Detail:   fmt.Sprintf("its directory is named %q and %s", exp.directory, directoryReason),
 			})
 		}
 
-		if exp.declaresSlug {
-			if reason := refuseSlug(exp.slug); reason != "" {
-				refusals = append(refusals, Refusal{
-					Property: RecordSlugIsNotALegalSlug,
-					Subject:  exp.record,
-					Detail:   fmt.Sprintf("its %s is %q and %s", FieldSlug, exp.slug, reason),
-				})
-			}
-		}
-
-		// The slug an experiment answers to is the one its record declares,
-		// and the directory name where it declares none. Both are the same
-		// string in a record that is in order, and the comparison has to work
-		// on one that is not.
-		answered := exp.directory
-		if exp.declaresSlug {
-			answered = exp.slug
-		}
-		folded := strings.ToLower(answered)
-		if first, taken := declared[folded]; taken {
-			refusals = append(refusals, Refusal{
-				Property: TwoExperimentsShareASlug,
-				Subject:  exp.path,
-				Detail: fmt.Sprintf("it answers to the slug %q and so does %s, so a reader holding that slug cannot tell which of them produced a result",
-					answered, first.path),
-			})
+		// An absent field is never a refusal, which record 0013 fixes, and a
+		// record declaring none answers to its directory name and cannot
+		// disagree with it.
+		if !exp.declaresSlug {
 			continue
 		}
-		declared[folded] = exp
+
+		slugReason := refuseSlug(exp.slug)
+		if slugReason != "" {
+			refusals = append(refusals, Refusal{
+				Property: RecordSlugIsNotALegalSlug,
+				Subject:  exp.record,
+				Detail:   fmt.Sprintf("its %s is %q and %s", FieldSlug, exp.slug, slugReason),
+			})
+		}
+
+		if directoryReason != "" || slugReason != "" {
+			continue
+		}
+
+		if exp.slug != exp.directory {
+			refusals = append(refusals, Refusal{
+				Property: RecordSlugDisagreesWithItsDirectory,
+				Subject:  exp.record,
+				Detail: fmt.Sprintf("its %s is %q and it sits in a directory named %q, so a reader walking back from the slug reaches another experiment or nothing",
+					FieldSlug, exp.slug, exp.directory),
+			})
+		}
 	}
 
 	return refusals
