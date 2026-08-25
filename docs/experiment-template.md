@@ -26,9 +26,25 @@ under `internal/hardware`, in a file whose name ends
 `_integration_hardware_test.go`, and a record that says one thing while the
 directory says the other is refused.
 
+Add `Borrowed` where the experiment starts from code somebody else wrote, naming
+where that code came from and the licence it arrives under. It is not in the
+header above for the reason `Measurement-Commit` is not: a template that ships a
+field filled in teaches every new record to declare a value it does not have, and
+almost every experiment borrows nothing. The code itself goes in
+`experiments/<slug>/borrowed/`, which carries its own `LICENSE` naming those
+terms, and a record declaring the field with no such directory is refused, as is
+a borrowed directory with no licence file in it.
+
+What that refusal does not do is worth knowing before you rely on it. Nothing
+reads the licence file, so a green run says the layout and the declaration agree
+and says nothing about which licence the code is actually under or whether the
+result may be promoted anywhere. A borrowed directory in an experiment whose
+record declares nothing passes, because an absent field is never refused.
+
 The format is `docs/decisions/0008-the-experiment-record.md`, as added to by
-`docs/decisions/0015-an-experiment-declares-the-harness-it-needs.md` and by
-`docs/decisions/0016-an-answer-names-the-commit-it-measured.md`. This file is a
+`docs/decisions/0015-an-experiment-declares-the-harness-it-needs.md`, by
+`docs/decisions/0016-an-answer-names-the-commit-it-measured.md` and by
+`docs/decisions/0019-code-under-another-licence.md`. This file is a
 convenience and those records are the authority.
 
 ## Question
