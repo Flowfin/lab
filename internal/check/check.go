@@ -524,14 +524,19 @@ func walkExperiments(fsys fs.FS, root string, res *Result) error {
 		res.Refusals = append(res.Refusals, refuseMeasurementCommit(record, data)...)
 		res.Refusals = append(res.Refusals, refuseDates(record, data, res.Now)...)
 		res.Refusals = append(res.Refusals, refusePromotion(record, data)...)
-		// The only rule here that reads the directory as well as the record,
-		// which is why it takes both and why it can fail: the others judge
-		// bytes already in hand and this one walks.
+		// The two rules here that read the directory as well as the record,
+		// which is why they take both and why they can fail: the others judge
+		// bytes already in hand and these two walk.
 		hardwareRefusals, err := refuseHardware(fsys, experimentPath, experiment, record, data)
 		if err != nil {
 			return err
 		}
 		res.Refusals = append(res.Refusals, hardwareRefusals...)
+		borrowedRefusals, err := refuseBorrowed(fsys, root, experimentPath, record, data)
+		if err != nil {
+			return err
+		}
+		res.Refusals = append(res.Refusals, borrowedRefusals...)
 		if parsed, err := ParseRecord(data); err == nil {
 			seen.slug, seen.declaresSlug = parsed.Field(FieldSlug)
 		}
