@@ -70,15 +70,26 @@ const (
 	gitDir = ".git"
 )
 
-// DeclaredLicence is the licence this repository has decided on, and it is
-// empty because that question is open. Entry one of the maintainer question
-// issue holds it, issue #47 lands the file and the decision record once it is
-// answered, and setting this string is the last line of that change.
+// DeclaredLicence is the licence this repository has decided on. Record 0018
+// answers entry one of the maintainer question issue with GPL-3.0, one licence
+// for the runner and the experiment content alike, and issue #47 is the change
+// that lands the file and sets this string.
 //
-// While it is empty the licence leg reports that it was not asked rather than
-// passing, so a run that could not check the licence is never read as one that
-// checked and was satisfied.
-const DeclaredLicence = ""
+// IT IS SPELLED AS THE TITLE LINE RATHER THAN AS THE SPDX IDENTIFIER, and that
+// is forced by what the leg below asks. The leg asks whether the licence file
+// NAMES the declared licence, and the canonical text of this licence never
+// writes an SPDX identifier anywhere in it, so a constant reading GPL-3.0
+// would refuse the very file it is about. The identifier is what the platform
+// reports and what README.md says; this is what the bytes at the root carry.
+//
+// WHAT IT SEPARATES AND WHAT IT DOES NOT. It separates this licence from the
+// GNU Affero General Public License, which this repository carried until the
+// change that set this string and whose text never writes this title. It does
+// not separate version 3 from version 2, because both carry the same title,
+// and no reading of the file below closes that gap while the comparison is a
+// substring. What guards the version is whoever lands the file taking it from
+// its canonical source, which is issue #47's sentence rather than this one.
+const DeclaredLicence = "GNU GENERAL PUBLIC LICENSE"
 
 // The properties this package can refuse. A property is the rule, named once
 // here and nowhere else, so a case declaring what it expects and a refusal the

@@ -33,10 +33,11 @@ whether the result holds for their case, and the fastest way to answer that is
 the list of cases it was never put to.
 
 The licence the code carries out. [LICENSE](../LICENSE) at the root of this
-board is the GNU Affero General Public License version 3, so that is what the
-code carries out and the receiving side inherits terms rather than finding
-none. Which licence this repository declares to the checks that read one is a
-separate thing and is open on issue #47. Entry three of issue #46 asks who may
+board is the GNU General Public License version 3, so that is what the code
+carries out and the receiving side inherits terms rather than finding none.
+This repository declares the same licence to the checks that read one, and
+[docs/decisions/0018-the-licence-of-this-board.md](docs/decisions/0018-the-licence-of-this-board.md)
+is the answer both of them come from. Entry three of issue #46 asks who may
 place a contributor's work under another board's terms and carries no answer,
 so a hand-over of somebody else's work still cannot be completed, and writing
 anything else into this line would be inventing permission nobody gave.

@@ -58,6 +58,6 @@ does not cover.
 
 ## License
 
-AGPL-3.0, copyright 2026 Nils Lehnen.
+GPL-3.0, copyright 2026 Nils Lehnen.
 
 The full text is in [LICENSE](LICENSE).
