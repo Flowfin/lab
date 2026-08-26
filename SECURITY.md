@@ -104,6 +104,28 @@ while asking a different question, which is the common case. The work stops and
 the report goes to them. What comes back here afterwards is the record, once
 the flaw is fixed and the affected project has said what it wants said.
 
+How long that record waits is 90 days from the report, and it is published at
+the end of them whether or not the fix and the statement have arrived. Waiting
+on those two indefinitely would hand the schedule to whoever is slowest to
+reply, and it would leave this board holding a record of a real finding that
+nobody outside knows exists. There is exactly one extension, granted on a
+reasoned request and written down, because a date fixed 90 days before anybody
+had looked at the flaw is sometimes the wrong date for it, and moving that date
+should be a choice somebody took rather than a slip. The reasoning, and what
+each rejected option would have cost, is in
+[decision record 0022](docs/decisions/0022-how-long-a-held-back-record-waits.md)
+and is not restated here. Where the affected project publishes its own
+disclosure policy and this board has reported into it, the earlier of the two
+dates is the one that binds here.
+
+That window is not a deadline anybody reporting to this board gets, and it is
+not the sentence under "What a reporter gets" below saying there is no response
+deadline. The two run in opposite directions and both stand. That one is about a
+report arriving here, and how long a reporter waits for an answer from me. The
+90 days are about a report leaving here, and how long this board holds back its
+own record of a flaw it found in somebody else's software. A window on what this
+board owes others is not a promise about what others may expect from it.
+
 A problem in Jellyfin itself belongs to
 [the Jellyfin project](https://github.com/jellyfin/jellyfin/security/policy). A
 report that lands here instead is pointed the right way rather than closed.
