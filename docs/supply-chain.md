@@ -166,11 +166,15 @@ untrusted. Reopen this line when #61 lands rather than before.
 
 `license file not detected`, with `Warn: project does not have a license file`
 
-Correct for the run above, and the tree has moved since. `LICENSE` is at the
-root of the default branch carrying the GNU Affero General Public License
-version 3, restored in `36442adad2d9dc66032cf3d29ab070697650db5c` and merged as
-`bb0de9cbcc79015054e3da10cef44a8ae3669b01`, so the reasoning that stood here,
-that default copyright applies and nobody may reuse anything, no longer follows.
+Correct for the run above, and the tree has moved twice since. `LICENSE` is at
+the root of the default branch carrying the GNU General Public License version
+3, which is the answer record 0018 writes down. What stood there before it was
+the GNU Affero General Public License version 3, restored in
+`36442adad2d9dc66032cf3d29ab070697650db5c` and merged as
+`bb0de9cbcc79015054e3da10cef44a8ae3669b01` and replaced by the change that
+answered the licence question. Under either of them the reasoning that stood
+here, that default copyright applies and nobody may reuse anything, no longer
+follows.
 The audit has not been re-run for this document and the score above is left as
 the run reported it. What the platform holds today is a different reading and is
 one command:
@@ -181,8 +185,11 @@ gh api 'repos/Flowfin/lab/code-scanning/alerts?tool_name=Scorecard&per_page=100'
 fixed
 ```
 
-What the file being there does not settle is the licence this repository
-declares to its own checks, which is empty and open on issue #47.
+What the file being there does not settle is whether its bytes are the
+canonical text of the licence they claim to be. The licence this repository
+declares to its own checks is set and is compared against the file, and that
+comparison asks whether the file names the declared licence rather than whether
+the text is canonical.
 
 ### Maintained, 0
 

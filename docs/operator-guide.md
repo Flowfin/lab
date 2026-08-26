@@ -201,11 +201,12 @@ is already on. Only the measurement is written down. Nothing here uploads,
 phones home, or reports usage, and there is no telemetry to turn off because
 there is none to turn on.
 
-[LICENSE](../LICENSE) at the root of the checkout is the GNU Affero General
-Public License version 3, and those are the terms this tree carries. What is
-still open is the licence this repository declares to its own checks, which is
-empty on issue #47, so a run here that says nothing about the licence is not
-saying the file is absent.
+[LICENSE](../LICENSE) at the root of the checkout is the GNU General Public
+License version 3, and those are the terms this tree carries. The licence this
+repository declares to its own checks is the same one, so a run here reports
+what it compared the file against rather than reporting that it was not asked.
+[docs/decisions/0018-the-licence-of-this-board.md](decisions/0018-the-licence-of-this-board.md)
+is where the answer and what it costs are written down.
 
 ## The record format may change
 

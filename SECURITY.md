@@ -123,9 +123,9 @@ A refusal you disagree with is not a vulnerability, and neither is a check that
 is too strict about a legitimate tree, nor a supply-chain score lower than you
 expected, which `docs/supply-chain.md` already triages check by check. Those
 are issues and they are welcome as issues. Nor is anything about the licence.
-[LICENSE](LICENSE) at the root carries the GNU Affero General Public License
-version 3, and what this repository declares to the checks that read a licence
-is still empty and open on issue #47. Both of those are legal or housekeeping
+[LICENSE](LICENSE) at the root carries the GNU General Public License version
+3, which is the answer record 0018 writes down, and it is what this repository
+declares to the checks that read a licence. Both of those are legal or housekeeping
 questions rather than security ones.
 
 ## What a reporter gets
