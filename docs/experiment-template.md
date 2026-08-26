@@ -41,10 +41,30 @@ and says nothing about which licence the code is actually under or whether the
 result may be promoted anywhere. A borrowed directory in an experiment whose
 record declares nothing passes, because an absent field is never refused.
 
+Add `Held-back` where the experiment is held back under
+`docs/decisions/0010-a-flaw-in-shipped-software.md`, with the date of the report
+the window is counted from, written as `YYYY-MM-DD`. It is not in the header
+above for the reason `Measurement-Commit` is not, and here a value shipped
+filled in would be worse than misleading: it would declare a hold on every
+record copied from this file. The record stays in `asking` while it waits, the
+listing prints that it is held back and when the clock started and nothing about
+what it is about, and a value that is not a date is refused. How long the wait
+is, what ends it and what the single extension costs are
+`docs/decisions/0022-how-long-a-held-back-record-waits.md`, and `SECURITY.md` is
+where that window is published for the project the report went to.
+
+What that refusal does not reach is the case the field exists for. A record
+being held back that declares no `Held-back` is not refused and cannot be, since
+an absent field is never a refusal. It sits in `asking` with a question that
+says nothing and appears in the listing as ordinary unanswered work, which is
+the misreport the field is written against and which only the person writing the
+record can prevent.
+
 The format is `docs/decisions/0008-the-experiment-record.md`, as added to by
 `docs/decisions/0015-an-experiment-declares-the-harness-it-needs.md`, by
-`docs/decisions/0016-an-answer-names-the-commit-it-measured.md` and by
-`docs/decisions/0019-code-under-another-licence.md`. This file is a
+`docs/decisions/0016-an-answer-names-the-commit-it-measured.md`, by
+`docs/decisions/0019-code-under-another-licence.md` and by
+`docs/decisions/0022-how-long-a-held-back-record-waits.md`. This file is a
 convenience and those records are the authority.
 
 ## Question

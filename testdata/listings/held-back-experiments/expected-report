@@ -1,0 +1,12 @@
+examined ../../testdata/listings/held-back-experiments/tree
+4 experiments
+the time this run read is 2026-09-15T12:00:00Z
+  slug                     state     question written  waiting   needs
+  still-asking             asking    2026-06-01        106 days  not declared
+  unreadable-hold          asking    2026-06-15        92 days   not declared
+  no-hold                  asking    2026-07-01        76 days   not declared
+  finished-but-still-held  answered  2026-04-01        -         not declared
+3 records are held back
+  still-asking is held back and the clock started 2026-06-01
+  unreadable-hold is held back and its Held-back is "some time in June", which is not a date
+  finished-but-still-held is held back and the clock started 2026-04-05, while its state is answered

@@ -57,6 +57,25 @@ type Entry struct {
 	// checker produces, and repeating that judgement here would put a verdict
 	// in a report.
 	NeedsHardware string
+
+	// HeldBack is the Held-back field as it was written, and Holding says
+	// whether the record carried one at all. The two are separate for the
+	// reason the hardware column is: a record that declares nothing and a
+	// record that declares an empty value are different statements, and a
+	// single string collapses them.
+	HeldBack string
+
+	// Holding says whether the record declared Held-back.
+	Holding bool
+
+	// Started is HeldBack parsed as a date, and HeldBackDated says whether it
+	// was read from one. A value that is not a date is refused by the checker
+	// and printed here as it was written, so the listing shows what the record
+	// says rather than what it should have said.
+	Started time.Time
+
+	// HeldBackDated says whether Started was read from a date.
+	HeldBackDated bool
 }
 
 // Waiting is how long an experiment has been asking, in whole days, and
@@ -222,6 +241,15 @@ func readEntry(dir, slug string) Entry {
 			entry.Dated = true
 		}
 	}
+
+	if held, present := record.Field(FieldHeldBack); present {
+		entry.Holding = true
+		entry.HeldBack = held
+		if date, err := time.Parse(DateFormat, held); err == nil {
+			entry.Started = date
+			entry.HeldBackDated = true
+		}
+	}
 	return entry
 }
 
@@ -263,7 +291,7 @@ func (l Listing) Report(now time.Time) string {
 	out += fmt.Sprintf("%d %s\n", len(l.Entries), plural(len(l.Entries), "experiment", "experiments"))
 	out += fmt.Sprintf("the time this run read is %s\n", now.UTC().Format(time.RFC3339))
 	if len(l.Entries) == 0 {
-		return out
+		return out + l.holds()
 	}
 
 	rows := [][5]string{{"slug", "state", "question written", "waiting", "needs"}}
@@ -293,6 +321,56 @@ func (l Listing) Report(now time.Time) string {
 			line = append(line, cell+strings.Repeat(" ", width[i]-len(cell)))
 		}
 		out += "  " + strings.Join(line, "  ") + "\n"
+	}
+	return out + l.holds()
+}
+
+// holds writes the held-back records, one dated line each, under a count.
+//
+// It is lines rather than a column, which is record 0022's own word for it and
+// is also what the table can carry. A sixth column would sit on every listing
+// to say nothing on almost all of them, and the comment at Report gives the
+// reason: a listing wide enough to wrap stops being scannable, and scanning it
+// is the whole point.
+//
+// The count is printed whatever it is, including zero. A reader who does not
+// know the listing reports holds at all cannot tell a tree with none from a
+// listing that never looked, and those are the two statements this line exists
+// to separate. It is the same reason the count of experiments is printed above
+// it.
+//
+// WHAT A LINE SAYS AND WHAT IT DOES NOT. It names the slug and the date the
+// clock started, and nothing else. Record 0022 discloses the fact of a hold and
+// when it began, and discloses what the experiment is about through neither,
+// because a date and the fact of a hold give a reader nothing to act on and
+// that is the whole point of holding the record back.
+//
+// Two things it reports rather than repairs. A value that is not a date is
+// printed as it was written, because a line saying a record is held back since
+// something unreadable is what sends somebody to the record, and
+// refuseHeldBack is what refuses it. A hold on a record that is not asking is
+// printed with the state beside it: record 0022 fixes a hold as a field beside
+// asking, no property in this tree refuses one anywhere else, and a report that
+// quietly dropped the state would hide the disagreement instead of the subject.
+func (l Listing) holds() string {
+	var held []Entry
+	for _, entry := range l.Entries {
+		if entry.Holding {
+			held = append(held, entry)
+		}
+	}
+
+	out := fmt.Sprintf("%d %s held back\n", len(held), plural(len(held), "record is", "records are"))
+	for _, entry := range held {
+		since := fmt.Sprintf("the clock started %s", entry.Started.Format(DateFormat))
+		if !entry.HeldBackDated {
+			since = fmt.Sprintf("its %s is %q, which is not a date", FieldHeldBack, entry.HeldBack)
+		}
+		line := fmt.Sprintf("  %s is held back and %s", entry.Slug, since)
+		if entry.State != StateAsking {
+			line += fmt.Sprintf(", while its state is %s", entry.State)
+		}
+		out += line + "\n"
 	}
 	return out
 }
