@@ -79,7 +79,7 @@ func TestJudge(t *testing.T) {
 // to the rule they are about, and they are returned into this table rather than
 // run from a second harness.
 func judgeCases() []judgeCase {
-	return append(append(recordJudgeCases(), removalJudgeCases()...), []judgeCase{
+	return append(append(append(recordJudgeCases(), removalJudgeCases()...), removedPathJudgeCases()...), []judgeCase{
 		{
 			name:   "a change that names its issue and touches no experiment",
 			change: clean(),
@@ -216,6 +216,7 @@ func judgeCases() []judgeCase {
 			name: "an experiment's file removed without its record",
 			change: func() Change {
 				c := clean()
+				c.Body = "This closes #24. It removes experiments/one/measure.go under record 0004."
 				c.Files = []File{{Path: "experiments/one/measure.go", Gone: true}}
 				return c
 			}(),
@@ -292,6 +293,7 @@ func judgeCases() []judgeCase {
 				QuestionAlreadyAskedWasRewritten,
 				RecordAlreadyLandedWasRemoved,
 				ExperimentAlreadyLandedWasRenamed,
+				PathRemovedWithoutBeingNamed,
 				ChangeIsLargerThanOneReading,
 			},
 		},
@@ -315,6 +317,7 @@ func TestEveryPropertyHasACaseThatRefusesIt(t *testing.T) {
 		QuestionAlreadyAskedWasRewritten,
 		RecordAlreadyLandedWasRemoved,
 		ExperimentAlreadyLandedWasRenamed,
+		PathRemovedWithoutBeingNamed,
 	}
 
 	refused := make(map[string]bool)

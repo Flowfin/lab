@@ -359,6 +359,7 @@ func Judge(change Change) Verdict {
 	verdict.add(judgeExperiments(change))
 	verdict.add(judgeRecords(change))
 	verdict.add(judgeRemovals(change))
+	verdict.add(judgeRemovedPaths(change))
 	verdict.add(judgeSize(change))
 
 	return verdict

@@ -24,6 +24,7 @@ func removalJudgeCases() []judgeCase {
 			name: "a record already on the branch that this change removes",
 			change: func() Change {
 				c := clean()
+				c.Body = "This closes #24. It removes " + record + " and experiments/one/measure.go."
 				c.Files = []File{
 					{Path: record, Gone: true},
 					{Path: "experiments/one/measure.go", Gone: true},
@@ -63,6 +64,7 @@ func removalJudgeCases() []judgeCase {
 			name: "a record this change removes that was never on the branch it lands on",
 			change: func() Change {
 				c := clean()
+				c.Body = "This closes #24. It removes " + record + ", which it also added."
 				c.Files = []File{{Path: record, Gone: true}}
 				c.Records = []RecordChange{{Path: record}}
 				return c
@@ -78,6 +80,7 @@ func removalJudgeCases() []judgeCase {
 			name: "an experiment's code removed with the record kept",
 			change: func() Change {
 				c := clean()
+				c.Body = "This closes #24. It removes experiments/one/measure.go under record 0004."
 				c.Files = []File{
 					{Path: "experiments/one/measure.go", Gone: true},
 					{Path: record},
@@ -107,6 +110,7 @@ func TestARemovedRecordNamesWhatMayBeRemovedInstead(t *testing.T) {
 	const record = "experiments/one/EXPERIMENT.md"
 
 	change := clean()
+	change.Body = "This closes #24. It removes " + record + "."
 	change.Files = []File{{Path: record, Gone: true}}
 	change.Records = []RecordChange{{
 		Path:          record,
@@ -201,6 +205,7 @@ func TestAMoveNothingReportedAsOneIsRefusedAsARemoval(t *testing.T) {
 	landed := recordAt("answered", theLandedAnswer)
 
 	change := clean()
+	change.Body = "This closes #24. It removes " + from + " and adds " + to + "."
 	change.Files = []File{{Path: from, Gone: true}, {Path: to}}
 	change.Records = []RecordChange{
 		{Path: from, Before: landed, BeforePresent: true},

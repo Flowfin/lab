@@ -13,7 +13,14 @@ under it, and say why the heading is gone rather than leaving a blank one.
 
 ## What this changes
 
-<!-- What the change does, in the words somebody reviewing it needs. -->
+<!--
+What the change does, in the words somebody reviewing it needs.
+
+A path this change takes out of the tree is named here, by path. Removing is
+allowed and removing in silence is not: the gate refuses a removed path this
+body never names, because a merge that deleted a licence, a guard and four
+hundred lines of a document once passed every check on this board.
+-->
 
 ## What failure it prevents
 
