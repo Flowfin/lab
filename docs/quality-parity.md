@@ -608,12 +608,51 @@ button. Issue #55 holds the change.
 
 ### The rule neither board carries
 
-A verified signature on every commit is required by neither ruleset. This walk
-does not add it and does not argue against it. Whether to require one is a
-question about key custody rather than an engineering judgement, and it is an
-entry on issue #46, which is open. The walk points there rather than deciding
-it, and parity settles nothing in either direction, because the target does not
+A verified signature on every commit is required by neither ruleset. Re-read on
+2026-08-26, `required_signatures` is absent from both:
+
+```
+gh api repos/Flowfin/lab/rules/branches/main --jq '.[].type'
+deletion
+non_fast_forward
+pull_request
+gh api repos/Flowfin/jellyfin-plugin-sso/rules/branches/main --jq '.[].type'
+deletion
+non_fast_forward
+required_status_checks
+pull_request
+```
+
+This walk still does not decide whether to require one, and what it points at
+has moved. The question was an entry on issue #46, and that entry is answered
+and that issue is closed:
+
+```
+gh issue view 46 --repo Flowfin/lab --json state,closedAt --jq '"\(.state) \(.closedAt)"'
+CLOSED 2026-08-24T19:11:13Z
+```
+
+The answer is `docs/decisions/0023-signed-commits-on-the-default-branch.md`: a
+commit on the default branch has to carry a verified signature, effective as the
+account keys operations#1609 sets up for the working accounts land, and not
+before. That record names this document among the things it applies to, so the
+walk points at the record rather than at the issue that collected the question,
+and parity settles nothing in either direction, because the target does not
 require one either.
+
+A rule that has been decided is not a rule that is configured, and that is the
+half of this section a reader is most likely to collapse. Nothing above changes
+the paste at the top of it. The setting is absent from both rulesets today, the
+record says of itself that nothing in this tree refuses an unsigned commit, and
+the condition that makes it effective is an issue on another board that is open:
+
+```
+gh issue view 1609 --repo iderex/operations --json state --jq '.state'
+OPEN
+```
+
+So this row is a decision waiting on a key, and reading it as a rule standing
+behind a merge here would be reading it for more than it is.
 
 ### What this walk cannot do
 
