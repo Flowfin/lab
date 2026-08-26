@@ -60,11 +60,31 @@ says nothing and appears in the listing as ordinary unanswered work, which is
 the misreport the field is written against and which only the person writing the
 record can prevent.
 
+Add `Real-Data` where the experiment reads real personal data, naming what
+category of data, on whose host, and what will be written down about it, or
+write `none`. It is not in the header above for the reason `Measurement-Commit`
+is not: a template that ships a field filled in teaches every new record to
+declare a value it does not have, and `none` shipped filled in would be a claim
+made by whoever copied the file rather than by whoever ran the experiment. It
+goes in the commit that writes the question, because the point of it is that the
+measurement was named while the answer was still unknown. Whose data may be read
+and what has to be agreed in advance are
+`docs/decisions/0025-real-data-in-an-experiment.md`, and `docs/privacy.md` is
+where the same rule is written for whoever is running the thing.
+
+What that refusal does not reach is the case the field exists for. A record
+declaring the field with nothing after the colon is refused, and an experiment
+that reads real data and declares nothing at all is not, since an absent field is
+never a refusal. Nothing here reads whose machine the data was on, whether the
+measurement was the agreed one, or whether the record carries the data rather
+than a measurement of it.
+
 The format is `docs/decisions/0008-the-experiment-record.md`, as added to by
 `docs/decisions/0015-an-experiment-declares-the-harness-it-needs.md`, by
 `docs/decisions/0016-an-answer-names-the-commit-it-measured.md`, by
-`docs/decisions/0019-code-under-another-licence.md` and by
-`docs/decisions/0022-how-long-a-held-back-record-waits.md`. This file is a
+`docs/decisions/0019-code-under-another-licence.md`, by
+`docs/decisions/0022-how-long-a-held-back-record-waits.md` and by
+`docs/decisions/0025-real-data-in-an-experiment.md`. This file is a
 convenience and those records are the authority.
 
 ## Question
@@ -78,8 +98,9 @@ record says "media transcoding" can never be shown to have missed its answer.
 What was done, in enough detail that somebody else could do it again or say why
 they cannot. The commands, the machine where it matters, and what was measured.
 
-What may never be committed alongside this record, and what happens where a
-question can only be answered against real data, is
-`docs/decisions/0006-everything-here-is-public.md`.
+What may never be committed alongside this record is
+`docs/decisions/0006-everything-here-is-public.md`. Whether a question may be
+answered against real data at all, and on what conditions, is
+`docs/decisions/0025-real-data-in-an-experiment.md`.
 
 ## Answer

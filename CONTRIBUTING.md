@@ -11,9 +11,10 @@ here refuses a violation of any of them: what may never be committed, in
 [0006](docs/decisions/0006-everything-here-is-public.md) and again below; what
 happens when an experiment finds a flaw in shipped software, in
 [0010](docs/decisions/0010-a-flaw-in-shipped-software.md); and what an
-experiment may do with real data, in [docs/privacy.md](docs/privacy.md), which
-is the one this board has not finished writing and says so, with #35 holding
-what is left. Why the door is open at that price is
+experiment may do with real data, in [docs/privacy.md](docs/privacy.md), whose
+conditions are
+[0025](docs/decisions/0025-real-data-in-an-experiment.md). Why the door is open
+at that price is
 [0024](docs/decisions/0024-who-may-run-an-experiment-here.md).
 
 ## Before you push
@@ -140,9 +141,11 @@ than about what is in the current checkout. The reasoning is in
   running server, whoever runs it.
 - No file whose licence forbids it being here.
 
-Where an experiment needs real data to answer its question, the data stays on
-the host it is already on. It does not enter the tree as a fixture, as a sample,
-as an attachment, redacted, or in a screenshot. Redaction is named because it is
+Where an experiment needs real data to answer its question, the data is the
+runner's own and the measurement is named in the record before the work starts,
+which is [0025](docs/decisions/0025-real-data-in-an-experiment.md), and the data
+stays on the host it is already on. It does not enter the tree as a fixture, as
+a sample, as an attachment, redacted, or in a screenshot. Redaction is named because it is
 the failure that feels safe: a partially masked identifier is still an
 identifier, and a screenshot of a list is a copy of the list. What may be
 written down is the measurement and the command that produced it.

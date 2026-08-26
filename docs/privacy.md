@@ -26,6 +26,41 @@ The list of what may never be committed is in
 [docs/decisions/0006-everything-here-is-public.md](decisions/0006-everything-here-is-public.md).
 This document is the operator-facing half of the same position.
 
+## Whether an experiment may use real data at all
+
+It may, under two conditions, and it says so before it starts.
+
+The data belongs to the person running the experiment. Their own library, their
+own accounts, their own logs, on their own host. Not a colleague's, not an
+employer's, not a user's, and not a copy of any of those that somebody was
+allowed to hold for a different purpose. Consent from somebody else is not a
+route this board offers, because consent has a scope, a date and a way of being
+withdrawn, and none of those is a thing a repository can hold or check.
+
+The measurements are agreed in the record before the work starts. What is
+measured goes into `EXPERIMENT.md` in the commit that writes the question, so
+the reading that gets published was named while the answer was still unknown. A
+measurement thought of afterwards is a new question and takes a new record.
+
+The declaration is the `Real-Data` field of the record header. It names what
+category of data, on whose host, and what will be written down about it, or the
+single word `none`:
+
+    Real-Data: my own media library, on my own machine, and what gets written down is the scan time and the item count
+    Real-Data: none
+
+Where synthetic data can answer the question, it does. A record that needed real
+data says why in its method. That is a sentence for a reader rather than a rule
+for a machine, and it is written this way to make the easy path the default
+without banning the hard one.
+
+The position above stands on top of all of it, unchanged. Real data never enters
+the tree, in any form, and what may be written down is the measurement.
+
+The reasoning is
+[docs/decisions/0025-real-data-in-an-experiment.md](decisions/0025-real-data-in-an-experiment.md),
+which is also where the field is fixed.
+
 ## What deliberately means
 
 Deliberately is the load-bearing word above, so it is defined here rather than
@@ -61,10 +96,9 @@ It says nothing about the operator's own machine. What else is running on the
 host, what the host's own logs retain, and what a backup of it carries are all
 outside anything written here.
 
-It does not settle whether an experiment may use real data at all. This document
-says what happens to real data if an experiment uses it. Whether that is
-permitted in the first place is a wider question, open on issue #46, and issue
-#35 is where the answer gets written down.
+It does not reach the case where somebody ignores the section above. What is
+written there is a rule about conduct on somebody else's machine, and the only
+thing this repository ever sees is the record that came back.
 
 It is not a legal characterisation. This is a statement of what the tooling does
 and does not do, not advice about what any particular law requires of an
@@ -106,3 +140,14 @@ own machine from a number they made up, and no check reads what an experiment
 did before it wrote its record. Review is where a record carrying something it
 should not is caught, and this is stated plainly here rather than left for a
 reader to assume otherwise.
+
+One line of the section above is read by the runner, and it is much less than
+that section. A record that declares `Real-Data` and writes nothing after the
+colon is refused, because it carries the appearance of a declaration and none of
+its content. That is the whole of it. A record that declares nothing at all is
+not refused and cannot be, since an absent field is legal for every field added
+after
+[docs/decisions/0013-how-the-record-format-changes.md](decisions/0013-how-the-record-format-changes.md);
+whose data it was and whether the measurement was agreed in advance are claims
+nothing here can test; and a green run says a declaration was written rather
+than that it is true.
