@@ -523,6 +523,7 @@ func walkExperiments(fsys fs.FS, root string, res *Result) error {
 		res.Refusals = append(res.Refusals, refuseHeaderDates(record, data)...)
 		res.Refusals = append(res.Refusals, refuseMeasurementCommit(record, data)...)
 		res.Refusals = append(res.Refusals, refuseHeldBack(record, data)...)
+		res.Refusals = append(res.Refusals, refuseRealData(record, data)...)
 		res.Refusals = append(res.Refusals, refuseDates(record, data, res.Now)...)
 		res.Refusals = append(res.Refusals, refusePromotion(record, data)...)
 		// The two rules here that read the directory as well as the record,

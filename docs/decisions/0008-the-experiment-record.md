@@ -1,9 +1,10 @@
 # 0008. What an experiment record looks like
 
 Superseded by 0014, which fixes what a slug may be, by 0015, which adds the
-field naming what an experiment needs beyond the runner, and by 0016, which adds
-the field naming the commit a measurement was produced at. Everything below
-stands as it was written.
+field naming what an experiment needs beyond the runner, by 0016, which adds
+the field naming the commit a measurement was produced at, and by 0025, which
+adds the field declaring real personal data. Everything below stands as it was
+written.
 
 ## What was decided
 
