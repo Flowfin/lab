@@ -1,11 +1,20 @@
 # Contributing
 
-This board is for questions that will probably fail. Everything here is public
-from the first commit, a failed experiment included, and the one rule that keeps
-that from producing a graveyard is that every experiment states its question
-before it starts and its answer when it stops. The answer may be no. An
-experiment with no written answer is not finished, it is abandoned, and the
-difference is meant to be visible.
+This board takes experiments from anybody, and it is for questions that will
+probably fail. Everything here is public from the first commit, a failed
+experiment included, and the one rule that keeps that from producing a
+graveyard is that every experiment states its question before it starts and its
+answer when it stops. The answer may be no. An experiment with no written answer
+is not finished, it is abandoned, and the difference is meant to be visible.
+Three rules have to be read before you start rather than after, because nothing
+here refuses a violation of any of them: what may never be committed, in
+[0006](docs/decisions/0006-everything-here-is-public.md) and again below; what
+happens when an experiment finds a flaw in shipped software, in
+[0010](docs/decisions/0010-a-flaw-in-shipped-software.md); and what an
+experiment may do with real data, in [docs/privacy.md](docs/privacy.md), which
+is the one this board has not finished writing and says so, with #35 holding
+what is left. Why the door is open at that price is
+[0024](docs/decisions/0024-who-may-run-an-experiment-here.md).
 
 ## Before you push
 
