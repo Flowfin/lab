@@ -35,6 +35,11 @@ almost every experiment borrows nothing. The code itself goes in
 terms, and a record declaring the field with no such directory is refused, as is
 a borrowed directory with no licence file in it.
 
+That directory is the only place a quarantine may be, and one is all record
+`0019` allows, so a directory named `borrowed` anywhere else in the experiment
+is refused too. One inside the quarantine is not: the code in there is laid out
+by whoever wrote it and this board does not rearrange it.
+
 What that refusal does not do is worth knowing before you rely on it. Nothing
 reads the licence file, so a green run says the layout and the declaration agree
 and says nothing about which licence the code is actually under or whether the

@@ -122,17 +122,21 @@ licence it arrives under, and it sits with the rest of the header in
 [docs/experiment-template.md](docs/experiment-template.md). An experiment that
 borrows nothing writes no such line.
 
-Two of those a run refuses and the rest of them it does not, and the difference
-is worth knowing before you lean on any of it. A `borrowed/` directory with no
-`LICENSE` beside it is refused, and so is a record declaring `Borrowed:` in an
-experiment that holds no such directory. A `borrowed/` directory in an
-experiment whose record declares nothing passes, because a field added to the
-format after
+Some of that a run refuses and some of it it does not, and the difference is
+worth knowing before you lean on any of it. A `borrowed/` directory with no
+`LICENSE` beside it is refused. So is a record declaring `Borrowed:` in an
+experiment that holds no such directory. So is a directory named `borrowed`
+anywhere else inside an experiment, since `experiments/<slug>/borrowed` is the
+one place a quarantine lives and one is all record `0019` allows. A directory
+of that name inside the quarantine is not refused: what is in there is somebody
+else's code laid out somebody else's way, and this board's rules stop at that
+edge.
+
+What still passes is a `borrowed/` directory in an experiment whose record
+declares nothing, because a field added to the format after
 [docs/decisions/0013-how-the-record-format-changes.md](docs/decisions/0013-how-the-record-format-changes.md)
-is never refused for being absent. A second quarantine deeper inside an
-experiment passes as well, since the check reads `experiments/<slug>/borrowed`
-and no other name, so the one-directory limit above is yours to keep rather
-than the gate's.
+is never refused for being absent. That one is yours to keep rather than the
+gate's.
 
 Nothing opens the licence file. A green run says the layout and the declaration
 do not contradict each other, and it says nothing about which licence the code
