@@ -51,6 +51,24 @@ const (
 	// The declaration having been made is what this reads, so record 0013 is
 	// untouched by it: an absent field says nothing and is not refused here.
 	RecordBorrowedDeclarationNamesNoDirectory = "record-borrowed-declaration-names-no-directory"
+
+	// AQuarantineOutsideThePlaceQuarantinesLive refuses a directory named
+	// borrowed inside an experiment that is not the one record 0019 fixes.
+	// That record puts the quarantine at experiments/<slug>/borrowed and
+	// allows one per experiment, and both halves of that are this one
+	// property: a second quarantine is necessarily somewhere the record does
+	// not put one.
+	//
+	// What it protects is the reason the quarantine exists at all. A person
+	// promoting the work walks the tree and reads the boundary off the layout,
+	// so a boundary somewhere below the first means the first one was not the
+	// boundary, and the reader who stopped at it learned something untrue.
+	//
+	// It is refused whatever the record says, for the same reason the licence
+	// arm is. The declaration names one source and one licence, so a second
+	// quarantine is undeclared by construction however carefully the header
+	// was written.
+	AQuarantineOutsideThePlaceQuarantinesLive = "quarantine-outside-the-place-quarantines-live"
 )
 
 // refuseBorrowed holds an experiment's borrowed quarantine and its record's
@@ -109,6 +127,16 @@ func refuseBorrowed(fsys fs.FS, root, inside, record string, data []byte) ([]Ref
 		}
 	}
 
+	// Asked whether or not the experiment holds a quarantine of its own, and
+	// asked before the declaration is read, because the two arms below return
+	// early on an unparseable record and a directory in the wrong place is not
+	// a thing a header could excuse.
+	elsewhere, err := refuseQuarantineElsewhere(fsys, root, inside, quarantine)
+	if err != nil {
+		return nil, err
+	}
+	refusals = append(refusals, elsewhere...)
+
 	parsed, err := ParseRecord(data)
 	if err != nil {
 		return refusals, nil
@@ -123,6 +151,70 @@ func refuseBorrowed(fsys fs.FS, root, inside, record string, data []byte) ([]Ref
 		Detail: fmt.Sprintf("it declares %s and there is no %s directory in %s, so the record says the experiment borrows and the tree says it does not",
 			FieldBorrowed, BorrowedDir, inside),
 	}), nil
+}
+
+// refuseQuarantineElsewhere walks an experiment for a directory named borrowed
+// that is not the one record 0019 fixes. It takes the allowed one as a path
+// rather than deriving it a second time, so the place this walks past and the
+// place refuseBorrowed judges cannot drift apart.
+//
+// IT STOPS AT THE QUARANTINE RATHER THAN JUDGING PAST IT. What is inside the
+// allowed directory is somebody else's code laid out somebody else's way, and a
+// directory named borrowed in there is that code's own business. Descending
+// would refuse honest work for the shape of a name this board does not own, and
+// the whole point of the quarantine is that this repository's rules stop at its
+// edge.
+//
+// WHERE IT DOES NOT REACH, in three places.
+//
+// Below WalkDepthBound nothing is examined, which is the bound the stray-record
+// walk already carries. A tree deep enough to hide a quarantine there is refused
+// by that walk for its depth, so the repair is the same one either way, and a
+// second bound here would give one tree two answers about how far a walk goes.
+//
+// A symbolic link named borrowed is not a directory to fs.WalkDir, so it is
+// neither followed nor refused here. That is the same position isDirectory
+// takes at its own declaration for the same reason: a link under experiments/
+// is already refused where the stray-record walk meets it, by reading the entry
+// rather than the target.
+//
+// Nothing here opens a licence file or reads a word of one, so a quarantine in
+// the right place with the wrong terms inside it is not this arm's subject and
+// is not any other arm's either.
+func refuseQuarantineElsewhere(fsys fs.FS, root, inside, quarantine string) ([]Refusal, error) {
+	var refusals []Refusal
+
+	err := fs.WalkDir(fsys, inside, func(name string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !entry.IsDir() {
+			return nil
+		}
+		if name == quarantine {
+			return fs.SkipDir
+		}
+		if depthOf(name) > WalkDepthBound {
+			return fs.SkipDir
+		}
+		if entry.Name() != BorrowedDir {
+			return nil
+		}
+		// Refused and not descended into. What is under it is code this board
+		// has already said it will not judge, and the repair is to move the
+		// directory rather than anything inside it.
+		refusals = append(refusals, Refusal{
+			Property: AQuarantineOutsideThePlaceQuarantinesLive,
+			Subject:  at(root, name),
+			Detail: fmt.Sprintf("a quarantine lives at %s and this one is at %s, so %s holds a second boundary below the first and record 0019 allows one",
+				quarantine, name, inside),
+		})
+		return fs.SkipDir
+	})
+	if err != nil {
+		return nil, fmt.Errorf("cannot walk %s: %w", at(root, inside), err)
+	}
+	return refusals, nil
 }
 
 // isDirectory says whether a name in the walked filesystem is a directory. A
