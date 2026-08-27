@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"testing"
 	"time"
@@ -26,7 +27,23 @@ var fixedNow = time.Date(2026, 8, 9, 12, 0, 0, 0, time.UTC)
 // passes. The walk is named at the call site because several cases contrive
 // it; the listing and the clock are the real ones unless a case says otherwise.
 func ordinary(walk func(string, time.Time) (check.Result, error)) edges {
-	return edges{walk: walk, list: check.List, now: fixedNow}
+	return edges{walk: walk, list: check.List, now: fixedNow, buildInfo: stamped}
+}
+
+// stamped is the build information a test that is not contriving one gets. It
+// is a value written out here rather than the real stamp, because the real one
+// is a different string on a checkout, at a tag and on a modified tree, and a
+// test asserting against it would assert whatever the machine running the suite
+// happened to produce.
+func stamped() (*debug.BuildInfo, bool) {
+	return &debug.BuildInfo{
+		Main: debug.Module{Path: "github.com/Flowfin/lab", Version: "v1.2.3"},
+		Settings: []debug.BuildSetting{
+			{Key: "vcs.revision", Value: "0123456789abcdef0123456789abcdef01234567"},
+			{Key: "vcs.time", Value: "2026-08-09T11:00:00Z"},
+			{Key: "vcs.modified", Value: "false"},
+		},
+	}, true
 }
 
 // TestExitCodes reaches every code this runner can return, and names the
@@ -245,5 +262,148 @@ func TestHelpNamesTheDocumentsAnOperatorIsOwed(t *testing.T) {
 		if _, err := os.Stat(filepath.Join("..", "..", filepath.FromSlash(document))); err != nil {
 			t.Errorf("the help output names %s and it is not in this tree: %v", document, err)
 		}
+	}
+}
+
+// TestVersionNamesTheDocumentsAnOperatorIsOwed is the version half of the rule
+// the help test holds for the usage text. Both routes exist because an operator
+// reaches for one or the other and not reliably for both, so a paragraph that
+// only one of them prints reaches only half of them.
+//
+// It asserts the same two things that test does. That the output names each
+// document, and that each document it names is in this tree to be found - a
+// binary pointing at a file somebody moved is worse than one pointing nowhere,
+// because the reader follows it.
+func TestVersionNamesTheDocumentsAnOperatorIsOwed(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if got := run([]string{"version"}, &out, &errOut, ordinary(realWalk)); got != exitClean {
+		t.Fatalf("exit code %d, want %d", got, exitClean)
+	}
+
+	for _, document := range documentsAnOperatorIsOwed {
+		if !strings.Contains(out.String(), document) {
+			t.Errorf("the version output does not name %s:\n%s", document, out.String())
+		}
+		if _, err := os.Stat(filepath.Join("..", "..", filepath.FromSlash(document))); err != nil {
+			t.Errorf("the version output names %s and it is not in this tree: %v", document, err)
+		}
+	}
+}
+
+// TestVersionReportsWhatTheToolchainStamped asserts that the version the verb
+// prints is the one it was handed rather than anything written in this package.
+// The failure it prevents is a constant in the source drifting from the tag a
+// binary was built at, which is the defect issue #44 opens with: it disagrees
+// silently, so every report from that build is misleading rather than wrong in
+// a way somebody notices.
+func TestVersionReportsWhatTheToolchainStamped(t *testing.T) {
+	e := ordinary(realWalk)
+	e.buildInfo = func() (*debug.BuildInfo, bool) {
+		return &debug.BuildInfo{
+			Main: debug.Module{Path: "github.com/Flowfin/lab", Version: "v9.9.9"},
+			Settings: []debug.BuildSetting{
+				{Key: "vcs.revision", Value: "feedfacefeedfacefeedfacefeedfacefeedface"},
+				{Key: "vcs.time", Value: "2026-01-02T03:04:05Z"},
+			},
+		}, true
+	}
+
+	var out, errOut bytes.Buffer
+	if got := run([]string{"version"}, &out, &errOut, e); got != exitClean {
+		t.Fatalf("exit code %d, want %d", got, exitClean)
+	}
+
+	for _, want := range []string{"v9.9.9", "feedfacefeedfacefeedfacefeedfacefeedface", "2026-01-02T03:04:05Z"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("the version output does not carry %q:\n%s", want, out.String())
+		}
+	}
+	if strings.Contains(out.String(), "v1.2.3") {
+		t.Errorf("the version output carries a version nothing handed it:\n%s", out.String())
+	}
+}
+
+// TestVersionSaysWhenTheTreeWasModified holds the disclosure that decides what
+// the two lines above it are worth. A build from a tree carrying changes
+// version control did not hold is described by neither the tag nor the commit,
+// and a reader who takes the commit for a description of the bytes in front of
+// them is the person this line exists for.
+//
+// The negative leg is the half worth having. A clean build must not print it,
+// because a disclosure that appears on every run is one nobody reads.
+func TestVersionSaysWhenTheTreeWasModified(t *testing.T) {
+	const disclosure = "carried changes version control did not hold"
+
+	withModified := func(modified string) string {
+		e := ordinary(realWalk)
+		e.buildInfo = func() (*debug.BuildInfo, bool) {
+			return &debug.BuildInfo{
+				Main: debug.Module{Path: "github.com/Flowfin/lab", Version: "v1.2.3"},
+				Settings: []debug.BuildSetting{
+					{Key: "vcs.revision", Value: "0123456789abcdef0123456789abcdef01234567"},
+					{Key: "vcs.modified", Value: modified},
+				},
+			}, true
+		}
+		var out, errOut bytes.Buffer
+		if got := run([]string{"version"}, &out, &errOut, e); got != exitClean {
+			t.Fatalf("exit code %d, want %d", got, exitClean)
+		}
+		return out.String()
+	}
+
+	if got := withModified("true"); !strings.Contains(got, disclosure) {
+		t.Errorf("a build from a modified tree does not disclose it:\n%s", got)
+	}
+	if got := withModified("false"); strings.Contains(got, disclosure) {
+		t.Errorf("a build from a clean tree discloses a modification that did not happen:\n%s", got)
+	}
+}
+
+// TestVersionWithoutBuildInformationCannot covers the one route where the verb
+// has nothing to answer with. The toolchain stamps build information into every
+// binary it builds in module mode, so a binary carrying none is not one this
+// repository's build produced, and saying that is worth more than printing an
+// empty version the reader would take for a real one.
+//
+// The code is the one record 0011 gives a runner that could not do its job,
+// rather than the one a refusal returns.
+func TestVersionWithoutBuildInformationCannot(t *testing.T) {
+	e := ordinary(realWalk)
+	e.buildInfo = func() (*debug.BuildInfo, bool) { return nil, false }
+
+	var out, errOut bytes.Buffer
+	if got := run([]string{"version"}, &out, &errOut, e); got != exitCannot {
+		t.Fatalf("exit code %d, want %d", got, exitCannot)
+	}
+	if out.Len() != 0 {
+		t.Errorf("it wrote to standard output when it had no version to report:\n%s", out.String())
+	}
+	if !strings.Contains(errOut.String(), "no build information") {
+		t.Errorf("the message does not say what was missing:\n%s", errOut.String())
+	}
+}
+
+// TestVersionTakesNoArguments holds the verb to the shape the other three have.
+// A verb that quietly ignored a word after it would let "lab version check" run
+// as a version report, and the reader would have no way to see that the thing
+// they asked for did not happen.
+func TestVersionTakesNoArguments(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if got := run([]string{"version", "somewhere"}, &out, &errOut, ordinary(realWalk)); got != exitCannot {
+		t.Fatalf("exit code %d, want %d", got, exitCannot)
+	}
+	if out.Len() != 0 {
+		t.Errorf("it printed a version for an invocation it refused:\n%s", out.String())
+	}
+}
+
+// TestTheUsageTextNamesTheVersionVerb keeps the help text and the verbs the
+// command answers from drifting apart. A verb missing from the usage text is a
+// verb only somebody reading the source finds, and the usage text is the only
+// listing of them in this repository.
+func TestTheUsageTextNamesTheVersionVerb(t *testing.T) {
+	if !strings.Contains(usage, "lab version") {
+		t.Errorf("the usage text does not name the version verb:\n%s", usage)
 	}
 }

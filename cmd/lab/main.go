@@ -1,12 +1,15 @@
 // Command lab reads a checkout of this repository and reports what it
 // examined. It has two verbs that do work, one that judges and one that only
-// reports, it takes no flags, and it writes nothing to the tree it reads.
+// reports, two that answer for the program itself, it takes no flags, and it
+// writes nothing to the tree it reads.
 package main
 
 import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/Flowfin/lab/internal/check"
@@ -60,9 +63,10 @@ const (
 // that prevents misuse when somebody later asks what does. And a notice an
 // operator has to run a verb to see is weaker than one sitting in the download
 // beside the binary, because the operator who most needs it is the one who runs
-// the thing without asking it for help first. Both routes exist for that
-// reason rather than either alone; the download half is issue #36 and has no
-// archive to be carried in yet.
+// the thing without asking it for help first. Both routes exist for that reason
+// rather than either alone, and the download half is in the tree now: the
+// release workflow copies these three files in beside the binaries, so an
+// operator who never runs a verb still holds them.
 //
 // Nothing outside this package holds these strings to the tree. The paths leg
 // of the invariants scan reads this repository's own documents, which is the
@@ -75,19 +79,27 @@ var documentsAnOperatorIsOwed = []string{
 	"docs/privacy.md",
 }
 
+// documentsParagraph is the pointer the operator is owed, and it is one string
+// rather than one per place that prints it. Both the usage text and the version
+// output end with it, and a second copy would drift against the first the day
+// one of the three files moves - which is the same failure the paragraph itself
+// is written against, one level up.
+const documentsParagraph = `NOTICE.md says what this program is for, LICENSE carries the terms it is under,
+and docs/privacy.md says what stays on the host. Reading them is on you; this
+text only says where they are.
+`
+
 const usage = `lab reads this repository and reports what it examined.
 
     lab check [path]   walk the tree at path, default ".", and report
     lab list [path]    list the experiments at path, default ".", oldest
                        unanswered first
+    lab version        print the version this binary was built from
     lab help           print this text
 
 lab writes nothing to the tree it reads.
 
-NOTICE.md says what this program is for, LICENSE carries the terms it is under,
-and docs/privacy.md says what stays on the host. Reading them is on you; this
-text only says where they are.
-`
+` + documentsParagraph
 
 // THIS IS WHERE THE RUNNER READS THE TIME, and it is read once. Everything
 // downstream is given the value rather than asking again, so a run has one
@@ -103,9 +115,10 @@ text only says where they are.
 // reading on.
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, edges{
-		walk: check.Walk,
-		list: check.List,
-		now:  time.Now(),
+		walk:      check.Walk,
+		list:      check.List,
+		now:       time.Now(),
+		buildInfo: debug.ReadBuildInfo,
 	}))
 }
 
@@ -126,6 +139,14 @@ type edges struct {
 	walk func(string, time.Time) (check.Result, error)
 	list func(string, time.Time) (check.Listing, error)
 	now  time.Time
+
+	// buildInfo is what the toolchain stamped into this binary. It is an
+	// edge for the same reason the clock is: a test asserting what the
+	// version verb prints cannot build a tagged binary to assert it
+	// against, and one that read the real build info would assert whatever
+	// the machine running the suite happened to produce, which is a
+	// different string on a checkout, on a tag and on a modified tree.
+	buildInfo func() (*debug.BuildInfo, bool)
 }
 
 // run is main with its edges passed in, so that what the command prints and
@@ -143,6 +164,25 @@ func run(args []string, out, errOut io.Writer, e edges) int {
 			return exitCannot
 		}
 		fmt.Fprint(out, usage)
+		return exitClean
+
+	case "version":
+		if len(args) > 1 {
+			fmt.Fprintf(errOut, "lab version takes no arguments\n")
+			return exitCannot
+		}
+
+		info, ok := e.buildInfo()
+		if !ok {
+			// The toolchain stamps this into every binary it builds in
+			// module mode, so reaching here means the caller is holding
+			// something this repository's build did not produce. Saying
+			// which of the two it is beats printing an empty version and
+			// letting the reader take it for one.
+			fmt.Fprintf(errOut, "lab version: this binary carries no build information, so there is no version in it to report\n")
+			return exitCannot
+		}
+		fmt.Fprint(out, versionText(info))
 		return exitClean
 
 	case "check":
@@ -202,4 +242,61 @@ func pathArgument(args []string, errOut io.Writer) (string, bool) {
 		fmt.Fprintf(errOut, "lab %s takes at most one path\n", args[0])
 		return "", false
 	}
+}
+
+// versionText renders what the version verb prints.
+//
+// WHERE THE VERSION COMES FROM AND WHY IT IS NOT A CONSTANT. The toolchain
+// stamps the main module's version into the binary from the tags version
+// control holds, so a build at a tag reports that tag and a build from a
+// checkout with no tag on it reports a version the toolchain derived from the
+// commit instead. A constant in a source file would be a second answer to the
+// same question, and it would disagree with the tag silently, which makes every
+// report from that build misleading rather than merely wrong.
+//
+// WHAT IT DOES NOT DECIDE. Nothing here says whether the string is a release
+// version. That judgement already exists in internal/bom, where it refuses a
+// published artefact that cannot be resolved back to a release, and a second
+// copy of the pattern here would be the same rule answered in two places. What
+// this prints instead is the string itself with the commit beside it, so the
+// reader can see which of the two they are holding rather than being told.
+func versionText(info *debug.BuildInfo) string {
+	var b strings.Builder
+
+	version := strings.TrimSpace(info.Main.Version)
+	if version == "" {
+		// An empty stamp is a different statement from a stamp the reader
+		// cannot resolve, and printing "lab " with nothing after it would
+		// read as the second.
+		version = "(the toolchain stamped no version)"
+	}
+	fmt.Fprintf(&b, "lab %s\n", version)
+
+	settings := make(map[string]string, len(info.Settings))
+	for _, setting := range info.Settings {
+		settings[setting.Key] = setting.Value
+	}
+
+	if revision := settings["vcs.revision"]; revision != "" {
+		if built := settings["vcs.time"]; built != "" {
+			fmt.Fprintf(&b, "built from commit %s, %s\n", revision, built)
+		} else {
+			fmt.Fprintf(&b, "built from commit %s\n", revision)
+		}
+	}
+
+	// The one line that changes what the two above are worth. A build from a
+	// tree carrying changes version control does not hold is described by
+	// neither the tag nor the commit, and the stamp says so rather than
+	// leaving a reader to infer it from a suffix on the version string.
+	if settings["vcs.modified"] == "true" {
+		fmt.Fprint(&b, "The tree this was built from carried changes version control did not hold,\nso neither the version nor the commit above describes every byte in this binary.\n")
+	}
+
+	// Three strings, one question, and the reader is told which of the three
+	// they may be holding rather than being left to work it out from a shape.
+	fmt.Fprint(&b, "\nThe version is what the toolchain stamped from version control when this binary\nwas built rather than a constant written into the source, so it is one of three\nthings. A tag, which is what a release carries. A version of the shape\nv0.0.0-<timestamp>-<commit>, which the toolchain derives from a commit no tag\nnames, and which is what building from an ordinary checkout produces. Or\n(devel), the placeholder it writes when it was told nothing at all, which is\nwhat running the source without building it produces.\n")
+
+	fmt.Fprint(&b, "\n"+documentsParagraph)
+	return b.String()
 }
