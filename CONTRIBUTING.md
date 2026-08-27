@@ -100,6 +100,45 @@ and the states are fixed in
 [docs/decisions/0003-the-experiment-lifecycle.md](docs/decisions/0003-the-experiment-lifecycle.md).
 There are three states and no others: `asking`, `answered`, `abandoned`.
 
+## Starting from somebody else's code
+
+An experiment may start from code somebody else wrote, and there is exactly one
+place that code may live. The argument is in
+[docs/decisions/0019-code-under-another-licence.md](docs/decisions/0019-code-under-another-licence.md);
+what follows is what the rule asks of you.
+
+The code goes in `experiments/<slug>/borrowed/`, and that directory carries its
+own `LICENSE` naming the terms the code arrives under. One such directory per
+experiment. Everything under it is under the licence that file names and
+everything outside it is under this board's, so the boundary is something a
+person walking the tree can see rather than something they have to be told.
+That is the whole point of it: a directory named `borrowed` with a licence file
+in it is visible to a walk, and a line in a header is visible only to somebody
+who opened the header.
+
+The record declares it too. `Borrowed:` in the header of
+`experiments/<slug>/EXPERIMENT.md` names where the code came from and the
+licence it arrives under, and it sits with the rest of the header in
+[docs/experiment-template.md](docs/experiment-template.md). An experiment that
+borrows nothing writes no such line.
+
+Two of those a run refuses and the rest of them it does not, and the difference
+is worth knowing before you lean on any of it. A `borrowed/` directory with no
+`LICENSE` beside it is refused, and so is a record declaring `Borrowed:` in an
+experiment that holds no such directory. A `borrowed/` directory in an
+experiment whose record declares nothing passes, because a field added to the
+format after
+[docs/decisions/0013-how-the-record-format-changes.md](docs/decisions/0013-how-the-record-format-changes.md)
+is never refused for being absent. A second quarantine deeper inside an
+experiment passes as well, since the check reads `experiments/<slug>/borrowed`
+and no other name, so the one-directory limit above is yours to keep rather
+than the gate's.
+
+Nothing opens the licence file. A green run says the layout and the declaration
+do not contradict each other, and it says nothing about which licence the code
+is actually under, or about whether the result may be promoted into a board
+under other terms, which record `0019` leaves undecided on purpose.
+
 ## Stopping one
 
 Two honest ways to stop, and both of them are finished work.
