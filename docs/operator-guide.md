@@ -31,19 +31,90 @@ first test on this board rather than from a later mechanism, which is
 
 ## Getting it
 
-There is nothing to download. This board publishes no binary, no checksum file
-and no release, so nothing on this page tells you how to verify a download, and
-whether anything is ever published is not decided. The route that exists is a
-checkout and a Go toolchain, and the toolchain version comes from `go.mod`:
+Two routes, and they are not equally strong. Downloading a file somebody else
+built lets you check this board without first building the checker out of the
+repository you are checking. Building from a checkout is the weaker position and
+it is the one that always works.
+
+### Downloading
+
+Releases are on the releases page of this repository, at
+`https://github.com/Flowfin/lab/releases`. Open it. If it lists nothing, no
+release has been cut yet and the checkout route below is the only one available
+to you; the rest of this section is written against the names the release
+workflow fixes rather than against a release anybody has published.
+
+A release is a set of files beside each other rather than an archive, so you
+download the ones you want and nothing unpacks. What is in one:
+
+- `lab_<tag>_<goos>_<goarch>` - one binary per platform, six of them, ending in
+  `.exe` on Windows. `<tag>` is the release tag, so the Linux build of `v0.1.0`
+  is `lab_v0.1.0_linux_amd64`.
+- `SHA256SUMS`, covering every other file in the release, and `SHA256SUMS.sig`,
+  a signature over that checksum file.
+- `NOTICE.md`, `LICENSE` and `privacy.md`, so the terms the code arrives under
+  and what the runner does with what it reads travel with the binary.
+- `THIRD-PARTY-NOTICES.md` and a bill of materials named
+  `lab_<tag>_sbom.cdx.json`.
+
+Download the binary for your platform, `SHA256SUMS` and `SHA256SUMS.sig` into
+one directory.
+
+### Checking what you downloaded
+
+The checksum says the bytes arrived as they left. It does not say who built
+them, because anybody who can place a file can place a checksum beside it. What
+answers that is the signature, and the release notes carry the commands for it
+alongside where the keys come from; they are in
+docs/release-notes-preamble.md in this tree, and every release
+is published with that text in its notes. Do not take the signing key from the
+release: a key published beside the signature it verifies proves nothing.
+
+Checking the digest is one command and the command differs by platform.
+`--ignore-missing` is what lets you check the two or three files you actually
+downloaded against a checksum file that covers eight.
+
+On Linux, with GNU coreutils:
+
+    sha256sum --check --ignore-missing SHA256SUMS
+
+On macOS, where the same tool is spelled differently:
+
+    shasum -a 256 --check --ignore-missing SHA256SUMS
+
+Both print one `OK` line per file they checked and exit non-zero if any line
+fails. A run that printed no `OK` line at all checked nothing, which is what
+happens when the filenames on disk are not the ones in the checksum file, and it
+is worth reading the output rather than the exit code for exactly that case.
+
+On Windows there is no `--check` equivalent in the shell, so the digest is
+computed and compared by eye. In PowerShell, for the binary you downloaded:
+
+    Get-FileHash -Algorithm SHA256 lab_v0.1.0_windows_amd64.exe
+    Select-String -Path SHA256SUMS -SimpleMatch lab_v0.1.0_windows_amd64.exe
+
+The first prints the hash of the file in front of you and the second prints the
+line the release published for it. They match or they do not, and the comparison
+is yours to make. `certutil -hashfile lab_v0.1.0_windows_amd64.exe SHA256` does
+the same in `cmd.exe` and prints the digest in lower case with spaces in it.
+
+A file whose digest does not match is not a file to run. There is no repair for
+it here beyond downloading it again from the releases page and, if it still does
+not match, saying so through the route in SECURITY.md rather than
+running it anyway.
+
+### Building from a checkout
+
+The route that needs no release. The toolchain version comes from `go.mod`:
 
     git clone https://github.com/Flowfin/lab
     cd lab
     go build -o lab ./cmd/lab
 
 Building the tool from the repository it is about is a weaker position than
-downloading one somebody else built, and it is the only position available
-today. The source of the checks is in the same checkout, which is the part that
-makes it worth anything: what each rule refuses is readable next to the rule.
+downloading one somebody else built and verifying where it came from, and this
+route makes no claim otherwise. What it buys is that the source of the checks is
+in the same checkout: what each rule refuses is readable next to the rule.
 
 ## The first run
 
