@@ -29,7 +29,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime/debug"
 
 	"github.com/Flowfin/lab/internal/notices"
 )
@@ -92,7 +91,7 @@ func run(args []string, out, errOut io.Writer) int {
 		return exitCannot
 	}
 
-	document := notices.Render(buildOf(info), notices.Cache{Root: cacheRoot})
+	document := notices.Render(notices.BuildOf(info), notices.Cache{Root: cacheRoot})
 	fmt.Fprint(out, document.Text())
 
 	if len(document.Refusals) > 0 {
@@ -102,39 +101,4 @@ func run(args []string, out, errOut io.Writer) int {
 		return exitRefused
 	}
 	return exitClean
-}
-
-// buildOf turns what the toolchain recorded into what the render reads.
-//
-// THE REPLACEMENT IS CARRIED RATHER THAN FLATTENED. A replaced module is
-// recorded twice by the toolchain: the module the build asked for, carrying the
-// replacement, and the replacement itself. What is in the binary is the
-// replacement's code, so that is what the licence has to come from, and a reader
-// comparing this document against go.mod is looking for the module that was
-// asked for. Both are written down.
-func buildOf(info *debug.BuildInfo) notices.Build {
-	build := notices.Build{
-		Main: notices.Module{Path: info.Main.Path, Version: info.Main.Version},
-	}
-	for _, setting := range info.Settings {
-		if setting.Key == "vcs.revision" {
-			build.Revision = setting.Value
-		}
-	}
-	for _, dep := range info.Deps {
-		if dep == nil {
-			continue
-		}
-		module := notices.Module{Path: dep.Path, Version: dep.Version}
-		if dep.Replace != nil {
-			module = notices.Module{
-				Path:            dep.Replace.Path,
-				Version:         dep.Replace.Version,
-				ReplacedPath:    dep.Path,
-				ReplacedVersion: dep.Version,
-			}
-		}
-		build.Deps = append(build.Deps, module)
-	}
-	return build
 }
