@@ -127,6 +127,11 @@ var Absences = []Absence{
 		Why:   "the supply-chain self-audit publishes from the default branch and has no pull-request trigger, so requiring it would require a context that never arrives on the thing being gated",
 		Until: "",
 	},
+	{
+		Name:  "release",
+		Why:   "the release workflow runs on a tag and on nothing else, so this context arrives on no pull request at all, and requiring it would hold every merge open waiting for a tick that is not coming",
+		Until: "",
+	},
 	{Name: "build (linux/amd64)", Why: theSetIsEmpty, Until: "#26"},
 	{Name: "build (linux/arm64)", Why: theSetIsEmpty, Until: "#26"},
 	{Name: "build (darwin/amd64)", Why: theSetIsEmpty, Until: "#26"},

@@ -1,0 +1,341 @@
+# Cut a release: one run produces everything an operator needs and nothing they
+# do not.
+#
+# WHAT IT PRODUCES. A binary for each of the six platforms record 0012 fixes.
+# The third-party notices and the bill of materials, both generated from the
+# module table inside a binary this run built. The notice, the licence and the
+# privacy document beside them. A checksum file covering every one of those, and
+# a signature over that checksum file. Nothing else, and specifically no
+# installer, because this board asks nobody to install anything.
+#
+# THE ASSETS ARE FILES BESIDE EACH OTHER RATHER THAN ARCHIVES, and that is a
+# decision rather than a shortcut. An archive records a modification time per
+# entry, so two runs from one tag produce two archives whose bytes differ while
+# the files inside them are identical, and the reproducibility claim this
+# workflow makes would be about the archiver rather than about the build. The
+# issue asks for the documents alongside the binary, and beside it is where they
+# are.
+#
+# IT ENDS AT A DRAFT. The last step creates the release as a draft, so publishing
+# it is a person's act rather than this file's. That is deliberate: everything up
+# to the human act is automated and the act itself is not, so nothing reaches
+# anybody's download page because a tag was pushed by accident.
+#
+# ONE JOB RATHER THAN A MATRIX THAT FANS OUT AND REJOINS. Passing six binaries
+# between jobs needs the two artefact actions, which are not in this tree, and
+# pinning either of them to a commit is a dependency this workflow does not need:
+# the module has no dependencies, so cross-compiling six targets is six compiler
+# invocations and costs less than the fan-out would. What the job holds while it
+# carries a write scope is the toolchain and this repository's own source, and
+# nothing third-party executes in it at all.
+#
+# Hardened the way every other workflow in this tree is, because the audit job in
+# zizmor.yml refuses a new one that departs from it: permissions denied at the
+# top and granted per job, every action pinned to a commit with its version in a
+# comment, checkout without persisted credentials, and no cache restored.
+name: Release
+
+# A tag and nothing else. No pull-request trigger and no push trigger on a
+# branch, so a release cannot be produced by accident, and the check name this
+# job reports under therefore never arrives on a pull request. That is why
+# internal/contexts carries it as a permanent deliberate absence rather than as
+# one waiting for issue #26.
+on:
+  push:
+    tags:
+      - "v*"
+
+# Explicit deny-all at workflow level; the job below grants only what it needs.
+permissions: {}
+
+# NOT CANCELLED BY A NEWER RUN, which is the one place in this repository where
+# the run-cancelling concurrency every other workflow uses would be wrong. A
+# release half-published is worse than a release published twice: the assets that
+# made it up are already downloadable and the checksum file covering them may not
+# be. The exception is written here rather than left to be noticed.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      # The one scope this workflow needs and the one job that holds it.
+      # Creating a draft release and uploading its assets is a write to the
+      # contents of this repository as the platform counts it.
+      contents: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The whole history, because the toolchain stamps the main module's
+          # version from the tags version control holds, and a clone that
+          # fetched one commit and no tag would stamp a version derived from
+          # the commit instead. The bill of materials refuses exactly that, so
+          # a shallow clone here would redden the run rather than publish a
+          # wrong document, but it would redden it for a reason that is about
+          # this file rather than about the release.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # The toolchain comes from go.mod, so the version a release is built
+          # with moves when the module says so and never separately.
+          go-version-file: go.mod
+          # No cache. A cache is writable by jobs a release must not trust, and
+          # this module has no dependencies for one to hold in any case.
+          cache: false
+
+      - name: Say what this release is being cut from
+        # A release names a tag, and the tag has to be the thing that was
+        # checked out rather than the thing that triggered the run. They are
+        # the same on an ordinary tag push and they are not the same if a tag
+        # is moved while a run is in flight, which is the case worth refusing
+        # rather than discovering in a published artefact.
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          commit=$(git rev-parse HEAD)
+          echo "tag ${TAG} at commit ${commit}"
+          if [ "$(git rev-parse "refs/tags/${TAG}^{commit}")" != "${commit}" ]; then
+            echo "::error::The tag ${TAG} does not point at the commit this run checked out."
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::The checkout carries changes version control does not hold, so nothing built here would describe the tagged source."
+            git status --porcelain
+            exit 1
+          fi
+          echo "TAG=${TAG}" >> "${GITHUB_ENV}"
+          echo "COMMIT=${commit}" >> "${GITHUB_ENV}"
+
+      - name: Build every platform twice and compare
+        # THE REPRODUCIBILITY LEG, and it is a measurement this run makes rather
+        # than a claim written beside it. Each target is compiled into two
+        # directories and the checksums are compared, so a build that is not a
+        # function of its source reddens the release instead of producing two
+        # artefacts nobody can tell apart from one.
+        #
+        # THE BOUND: this is two builds in one run on one machine. It excludes a
+        # timestamp, a random identifier and a compiler that is not
+        # deterministic. It does not exclude a difference between two machines
+        # or two toolchain versions, and the release notes say so rather than
+        # letting a reader take it for the larger claim.
+        #
+        # -trimpath removes the build machine's directory layout from the
+        # binary, which is the ordinary reason two builds of one source differ.
+        # CGO_ENABLED=0 keeps a C toolchain the runner happens to have out of
+        # the result. The platform list is record 0012's six entries and no
+        # others.
+        env:
+          OUT: ${{ runner.temp }}/dist
+        run: |
+          set -euo pipefail
+          mkdir -p "${OUT}/first" "${OUT}/second"
+
+          platforms="linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64"
+          for platform in ${platforms}; do
+            goos=${platform%/*}
+            goarch=${platform#*/}
+            name="lab_${TAG}_${goos}_${goarch}"
+            if [ "${goos}" = "windows" ]; then
+              name="${name}.exe"
+            fi
+            for pass in first second; do
+              CGO_ENABLED=0 GOOS="${goos}" GOARCH="${goarch}" \
+                go build -trimpath -o "${OUT}/${pass}/${name}" ./cmd/lab
+            done
+            one=$(sha256sum "${OUT}/first/${name}" | cut -d' ' -f1)
+            two=$(sha256sum "${OUT}/second/${name}" | cut -d' ' -f1)
+            if [ "${one}" != "${two}" ]; then
+              echo "::error::Two builds of ${platform} from ${TAG} produced different bytes: ${one} and ${two}."
+              exit 1
+            fi
+            echo "${platform}: ${one} from both passes"
+          done
+          echo "built 6 platform(s), each twice, with matching checksums"
+
+      - name: Render the notices and the bill of materials
+        # Both documents come from the module table inside a binary this run
+        # built, which is where #37 put them and why neither is a list anybody
+        # maintains.
+        #
+        # ONE OF EACH FOR SIX BINARIES, AND THE RUN PROVES THAT IS RIGHT RATHER
+        # THAN ASSERTING IT. Neither document names a platform: what they carry
+        # is the module set and the revision, and those are properties of the
+        # module and the commit rather than of the target. So the documents are
+        # rendered from every one of the six binaries and required to come out
+        # byte for byte identical, and a release where that stops being true
+        # reddens here instead of publishing one document that describes one
+        # sixth of what was shipped.
+        #
+        # A REFUSAL FROM EITHER COMMAND STOPS THE RELEASE. The notices are a
+        # legal obligation and a document incomplete by named entries does not
+        # discharge it; the bill of materials refuses a build that names no
+        # release, which is precisely the thing that must not be published.
+        # Exit code 2 is the command unable to do its job, which is a different
+        # failure and is also fatal here. Record 0011 is the contract.
+        env:
+          OUT: ${{ runner.temp }}/dist
+        run: |
+          set -euo pipefail
+          cache=$(go env GOMODCACHE)
+          mkdir -p "${cache}"
+          mkdir -p "${OUT}/render"
+
+          for binary in "${OUT}"/first/*; do
+            name=$(basename "${binary}")
+            go run ./cmd/notices "${binary}" "${cache}" > "${OUT}/render/${name}.notices"
+            go run ./cmd/bom "${binary}" > "${OUT}/render/${name}.bom"
+          done
+
+          cd "${OUT}/render"
+          if [ "$(sha256sum ./*.notices | cut -d' ' -f1 | sort -u | wc -l)" -ne 1 ]; then
+            echo "::error::The six binaries produced different notices, so no single document describes this release."
+            sha256sum ./*.notices
+            exit 1
+          fi
+          if [ "$(sha256sum ./*.bom | cut -d' ' -f1 | sort -u | wc -l)" -ne 1 ]; then
+            echo "::error::The six binaries produced different bills of materials, so no single document describes this release."
+            sha256sum ./*.bom
+            exit 1
+          fi
+          echo "6 binaries produced one notices document and one bill of materials"
+
+      - name: Assemble what this release publishes
+        # The documents from the tree travel with the binaries, because an
+        # operator holding a downloaded file and nothing else has no way to
+        # reach them. NOTICE.md and LICENSE are the terms the code arrives
+        # under, and docs/privacy.md is what the runner does with what it
+        # reads.
+        env:
+          OUT: ${{ runner.temp }}/dist
+        run: |
+          set -euo pipefail
+          assets="${OUT}/assets"
+          mkdir -p "${assets}"
+
+          cp "${OUT}"/first/lab_* "${assets}/"
+          first_notices=$(find "${OUT}/render" -name '*.notices' | sort | head -1)
+          first_bom=$(find "${OUT}/render" -name '*.bom' | sort | head -1)
+          cp "${first_notices}" "${assets}/THIRD-PARTY-NOTICES.md"
+          cp "${first_bom}" "${assets}/lab_${TAG}_sbom.cdx.json"
+          cp NOTICE.md LICENSE docs/privacy.md "${assets}/"
+
+          cd "${assets}"
+          sha256sum ./* > SHA256SUMS
+          sed -i 's|\./||' SHA256SUMS
+          echo "assets in this release:"
+          cat SHA256SUMS
+          covered=$(wc -l < SHA256SUMS)
+          present=$(find . -type f ! -name SHA256SUMS | wc -l)
+          if [ "${covered}" -ne "${present}" ]; then
+            echo "::error::SHA256SUMS covers ${covered} file(s) and ${present} are being published."
+            exit 1
+          fi
+          echo "SHA256SUMS covers all ${present} published file(s)"
+
+      - name: Sign the checksum file
+        # Record 0021 decides that the artefacts are signed rather than
+        # published with a bare checksum, because a checksum beside the file it
+        # checksums proves the download arrived intact and says nothing about
+        # who built it.
+        #
+        # ONE SIGNATURE OVER THE CHECKSUM FILE COVERS EVERY ASSET. The checksum
+        # file names every published file and its digest, so a signature over it
+        # is a signature over the set, and a reader who verifies it and then
+        # checks a digest has checked that file. Signing each asset separately
+        # would publish seven signatures for one claim.
+        #
+        # THE KEY IS THE ACCOUNT'S AND IT IS NOT THIS BOARD'S TO INVENT.
+        # operations#1609 sets up the keys for the working accounts, and record
+        # 0023 requires a commit on the default branch to carry a signature from
+        # the same ones, which is what makes this one key-custody story rather
+        # than two. A reader verifies against the public signing keys the
+        # platform publishes for the account rather than against anything this
+        # release ships, and the release notes say so.
+        #
+        # IT FAILS CLOSED. Where the secret is absent the release stops here
+        # rather than publishing an unsigned set, because record 0021 says the
+        # artefacts are signed and a release that quietly drops the signature is
+        # the decision being reversed by an absent value.
+        env:
+          OUT: ${{ runner.temp }}/dist
+          SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SIGNING_KEY}" ]; then
+            echo "::error::No signing key is configured for this repository, and record 0021 says a release is signed. Set the RELEASE_SIGNING_KEY secret to the private half of the account signing key that operations#1609 sets up, then re-run."
+            exit 1
+          fi
+
+          key="${RUNNER_TEMP}/signing-key"
+          umask 077
+          printf '%s\n' "${SIGNING_KEY}" > "${key}"
+          ssh-keygen -Y sign -f "${key}" -n file "${OUT}/assets/SHA256SUMS"
+          rm -f "${key}"
+
+          if [ ! -s "${OUT}/assets/SHA256SUMS.sig" ]; then
+            echo "::error::Signing wrote no signature."
+            exit 1
+          fi
+          echo "signed SHA256SUMS, $(wc -c < "${OUT}/assets/SHA256SUMS.sig") byte(s)"
+
+      - name: Write the release notes
+        # The notes are assembled from a tracked document and the facts this run
+        # measured, rather than typed at the moment a release is cut. The fixed
+        # half is docs/release-notes-preamble.md, which carries what this is,
+        # what it is for, what it is not, and how a reader verifies the
+        # signature. The measured half is below it and is never written by hand.
+        env:
+          OUT: ${{ runner.temp }}/dist
+        run: |
+          set -euo pipefail
+          notes="${RUNNER_TEMP}/release-notes.md"
+          {
+            cat docs/release-notes-preamble.md
+            echo
+            echo "## What this release was built from"
+            echo
+            echo "Tag \`${TAG}\` at commit \`${COMMIT}\`."
+            echo
+            echo "Every binary here was compiled twice in the run that published it and the"
+            echo "two passes produced the same checksum. That is two builds on one machine"
+            echo "with one toolchain: it excludes a timestamp, a random identifier and a"
+            echo "compiler that is not deterministic, and it does not say that a build on"
+            echo "another machine would match."
+            echo
+            echo "The third-party notices and the bill of materials were rendered from the"
+            echo "module table inside each of the six binaries, and all six produced the same"
+            echo "two documents."
+            echo
+            echo '```'
+            cat "${OUT}/assets/SHA256SUMS"
+            echo '```'
+          } > "${notes}"
+          echo "NOTES=${notes}" >> "${GITHUB_ENV}"
+          wc -l < "${notes}" | xargs echo "release notes, lines:"
+
+      - name: Create the draft release
+        # A draft, so that publishing is a person's act. The assets are uploaded
+        # with it, so the thing a person publishes is the finished set rather
+        # than an empty shell they then have to fill.
+        env:
+          OUT: ${{ runner.temp }}/dist
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release create "${TAG}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --draft \
+            --title "${TAG}" \
+            --notes-file "${NOTES}" \
+            "${OUT}"/assets/*
+          echo "created the draft release ${TAG} with $(find "${OUT}/assets" -type f | wc -l) asset(s)"
+          echo "It is a draft. Publishing it is the act this workflow deliberately does not take."
