@@ -1,0 +1,21 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "metadata": {
+    "component": {
+      "type": "application",
+      "bom-ref": "pkg:golang/github.com/Flowfin/lab@%28devel%29",
+      "name": "github.com/Flowfin/lab",
+      "version": "(devel)",
+      "purl": "pkg:golang/github.com/Flowfin/lab@%28devel%29"
+    },
+    "properties": [
+      {
+        "name": "lab:vcs.revision",
+        "value": "8f3c1d9a2b7e4f60c5d8a1b3e6f902478c1d5e2a"
+      }
+    ]
+  },
+  "components": []
+}

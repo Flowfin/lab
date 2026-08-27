@@ -1,0 +1,29 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "metadata": {
+    "component": {
+      "type": "application",
+      "bom-ref": "pkg:golang/github.com/Flowfin/lab@v1.0.0",
+      "name": "github.com/Flowfin/lab",
+      "version": "v1.0.0",
+      "purl": "pkg:golang/github.com/Flowfin/lab@v1.0.0"
+    },
+    "properties": [
+      {
+        "name": "lab:vcs.revision",
+        "value": "8f3c1d9a2b7e4f60c5d8a1b3e6f902478c1d5e2a"
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "pkg:golang/example.com/widget@v1.2.3",
+      "name": "example.com/widget",
+      "version": "v1.2.3",
+      "purl": "pkg:golang/example.com/widget@v1.2.3"
+    }
+  ]
+}
