@@ -1,0 +1,308 @@
+# Smoke the published artefact, which is the one thing nothing else here reads.
+#
+# Every other check in this repository tests the runner as source. An operator
+# runs a downloaded file, and the distance between those two is where release
+# defects live: a build flag that only applies to one platform, a release
+# missing a document, a binary that needs a library the build machine happened
+# to have.
+#
+# IT USES THE PUBLISHED ARTEFACT AND NEVER A REBUILD. A job that rebuilt the
+# binary would test the build a second time and say nothing about what was
+# published, which is the thing an operator will actually download. Everything
+# below is fetched from the release.
+#
+# IT ASSERTS ON THE OUTPUT AND NOT ONLY ON THE EXIT CODE. Exit zero with no
+# output at all is what a binary that failed to find the tree also produces, and
+# that is precisely the release defect this exists to catch.
+#
+# WHAT IT VERIFIES AND WHAT IT RUNS ARE DIFFERENT COUNTS, and record 0012 is why.
+# Six platforms get a binary and three of them have a runner here, so all six
+# digests are checked and three of the binaries are executed. The other three are
+# verified as bytes and never run, which is the same shape the build workflow
+# already has, and the run says so rather than leaving a reader to infer that six
+# green ticks mean six binaries were executed.
+#
+# IT RUNS AFTER PUBLISHING AND ON A SCHEDULE. An artefact that becomes
+# unfetchable weeks after it was published is a real failure and nothing else
+# here would notice it.
+#
+# Hardened the way every other workflow in this tree is, because the audit job in
+# zizmor.yml refuses a new one that departs from it: permissions denied at the
+# top and granted per job, every action pinned to a commit with its version in a
+# comment, checkout without persisted credentials, and no cache restored.
+name: Smoke the release
+
+# Never on a pull request and never on a push. What these jobs read is a
+# published release, which a branch does not have, so the check names they
+# report under arrive on no pull request at all and internal/contexts carries
+# them as permanent deliberate absences.
+on:
+  release:
+    types: [published]
+  schedule:
+    # Weekly. What this catches on a schedule is an artefact that stopped being
+    # fetchable rather than one that was published wrong, and that failure does
+    # not need finding within the hour.
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+# Explicit deny-all at workflow level; each job grants only what it needs.
+permissions: {}
+
+# A superseded run is safe to drop here. Nothing in this workflow publishes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    # Every published file, checked against the checksum file and the signature
+    # that were published beside it. This is the whole set, including the three
+    # binaries no runner here can execute.
+    name: verify the published artefacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Download the whole release
+        # WHAT HAPPENS WHERE THERE IS NO RELEASE. The job says so and stops
+        # examining rather than failing. A red tick standing for weeks on a
+        # board that has not cut its first release teaches readers that red is
+        # survivable, which costs more than this check is worth. What stops it
+        # being read as a clean result is that every later step reports the
+        # count it examined, and a run that examined nothing prints zero.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p download
+          if ! tag=$(gh release list --repo "${GITHUB_REPOSITORY}" --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName'); then
+            tag=""
+          fi
+          if [ -z "${tag}" ] || [ "${tag}" = "null" ]; then
+            echo "::warning::There is no published release on this board, so this run verified 0 artefact(s) and executed 0."
+            echo "RELEASE_TAG=" >> "${GITHUB_ENV}"
+            exit 0
+          fi
+          gh release download "${tag}" --repo "${GITHUB_REPOSITORY}" --dir download
+          echo "RELEASE_TAG=${tag}" >> "${GITHUB_ENV}"
+          echo "downloaded $(find download -type f | wc -l) file(s) from ${tag}"
+
+      - name: Check every digest against the published checksum file
+        run: |
+          set -euo pipefail
+          if [ -z "${RELEASE_TAG}" ]; then
+            echo "no published release, so 0 digest(s) were checked"
+            exit 0
+          fi
+          cd download
+          if [ ! -s SHA256SUMS ]; then
+            echo "::error::The release ${RELEASE_TAG} carries no checksum file, so nothing published under it can be checked."
+            exit 1
+          fi
+          sha256sum --check --strict SHA256SUMS
+          covered=$(wc -l < SHA256SUMS)
+          present=$(find . -type f ! -name SHA256SUMS ! -name SHA256SUMS.sig | wc -l)
+          echo "${RELEASE_TAG}: checked ${covered} digest(s) against ${present} published file(s)"
+          if [ "${covered}" -ne "${present}" ]; then
+            echo "::error::The checksum file covers ${covered} file(s) and ${present} were published, so something is published under no digest."
+            exit 1
+          fi
+
+      - name: Verify the signature the way the release notes tell a reader to
+        # The notes hand whoever downloads a release a pair of commands. This
+        # runs those commands rather than an equivalent of them, so a change
+        # that makes the published instructions stop working reddens here
+        # instead of being discovered by the person following them.
+        run: |
+          set -euo pipefail
+          if [ -z "${RELEASE_TAG}" ]; then
+            echo "no published release, so 0 signature(s) were verified"
+            exit 0
+          fi
+          cd download
+          if [ ! -s SHA256SUMS.sig ]; then
+            echo "::error::The release ${RELEASE_TAG} carries no signature, and record 0021 says the artefacts are signed."
+            exit 1
+          fi
+          curl -sS https://api.github.com/users/iderex/ssh_signing_keys \
+            | sed -n 's/.*"key": "\(.*\)".*/iderex \1/p' > allowed-signers
+          if [ ! -s allowed-signers ]; then
+            echo "::error::The account publishes no signing key, so the signature on ${RELEASE_TAG} cannot be checked against anything."
+            exit 1
+          fi
+          ssh-keygen -Y verify -f allowed-signers -I iderex -n file \
+            -s SHA256SUMS.sig < SHA256SUMS
+          echo "${RELEASE_TAG}: the signature over SHA256SUMS verifies against $(wc -l < allowed-signers) published key(s)"
+
+  smoke:
+    # One entry per platform record 0012 says the suite runs on. The other three
+    # entries of that record get a binary and no runner, so their bytes are
+    # checked by the job above and nothing here executes them.
+    name: smoke (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      # Every platform runs. Stopping at the first failure would leave the other
+      # two unexamined, and a release defect is the last thing to learn about
+      # one platform at a time.
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            asset: linux_amd64
+          - platform: windows/amd64
+            runner: windows-latest
+            asset: windows_amd64.exe
+          - platform: darwin/arm64
+            runner: macos-latest
+            asset: darwin_arm64
+    defaults:
+      run:
+        # One shell for all three entries, so the assertions below are one
+        # script rather than three that have to be kept saying the same thing.
+        shell: bash
+    steps:
+      - name: Download this platform's published binary and its checksum file
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ASSET: ${{ matrix.asset }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          mkdir -p download
+          if ! tag=$(gh release list --repo "${GITHUB_REPOSITORY}" --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName'); then
+            tag=""
+          fi
+          if [ -z "${tag}" ] || [ "${tag}" = "null" ]; then
+            echo "::warning::There is no published release on this board, so ${PLATFORM} executed 0 artefact(s)."
+            echo "RELEASE_TAG=" >> "${GITHUB_ENV}"
+            exit 0
+          fi
+          gh release download "${tag}" --repo "${GITHUB_REPOSITORY}" --dir download \
+            --pattern "*_${ASSET}" --pattern SHA256SUMS
+          echo "RELEASE_TAG=${tag}" >> "${GITHUB_ENV}"
+          echo "${PLATFORM}: downloaded $(find download -type f | wc -l) file(s) from ${tag}"
+
+      - name: Check this binary against the published digest
+        env:
+          ASSET: ${{ matrix.asset }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RELEASE_TAG}" ]; then
+            echo "no published release, so ${PLATFORM} checked 0 digest(s)"
+            exit 0
+          fi
+          cd download
+          binary=$(find . -name "*_${ASSET}" -type f | head -1)
+          if [ -z "${binary}" ]; then
+            echo "::error::The release ${RELEASE_TAG} publishes no binary for ${PLATFORM}, and record 0012 says it targets that platform."
+            exit 1
+          fi
+          # The digest is computed and compared rather than handed to a
+          # --check flag. macOS carries no sha256sum, its shasum spells the
+          # same job differently, and the two disagree about what --strict and
+          # --ignore-missing mean. Comparing two strings behaves the same on
+          # all three entries and says both of them when it fails.
+          if command -v sha256sum >/dev/null 2>&1; then
+            got=$(sha256sum "${binary}" | cut -d' ' -f1)
+          else
+            got=$(shasum -a 256 "${binary}" | cut -d' ' -f1)
+          fi
+          want=$(grep -F "$(basename "${binary}")" SHA256SUMS | cut -d' ' -f1)
+          if [ -z "${want}" ]; then
+            echo "::error::The published checksum file names no digest for $(basename "${binary}")."
+            exit 1
+          fi
+          if [ "${got}" != "${want}" ]; then
+            echo "::error::$(basename "${binary}") hashes to ${got} and the release published ${want}."
+            exit 1
+          fi
+          echo "${PLATFORM}: $(basename "${binary}") matches its published digest ${want}"
+          echo "BINARY=${binary}" >> "${GITHUB_ENV}"
+
+      - name: Clone the default branch fresh
+        # A clone rather than a checkout of this repository, because what an
+        # operator points the runner at is a working copy they made themselves.
+        # It is deliberately not the commit this workflow runs from: a release
+        # that stopped reading the branch it is meant to check is the failure,
+        # and pinning the clone would hide it.
+        run: |
+          set -euo pipefail
+          if [ -z "${RELEASE_TAG}" ]; then
+            echo "no published release, so nothing was cloned"
+            exit 0
+          fi
+          git clone --depth 1 "https://github.com/${GITHUB_REPOSITORY}.git" fresh-clone
+          echo "cloned $(git -C fresh-clone rev-parse HEAD)"
+
+      - name: Run the published binary against that clone
+        # THE ASSERTIONS ARE ON THE OUTPUT AS WELL AS THE CODE. A binary that
+        # cannot find the tree, or that was built without the checks compiled
+        # into it, exits zero having printed nothing, and that is the exact
+        # release defect this job exists to catch. So the run has to say what it
+        # examined, name the two registers it walked, and finish with the line
+        # that reports what it refused.
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RELEASE_TAG}" ]; then
+            echo "${PLATFORM}: no published release, so 0 artefact(s) were executed"
+            exit 0
+          fi
+          chmod +x "${BINARY}" || true
+          set +e
+          "${BINARY}" check fresh-clone > smoke.log 2>&1
+          code=$?
+          set -e
+          echo "${PLATFORM}: the published binary returned ${code}"
+          cat smoke.log
+
+          if [ "${code}" -ne 0 ]; then
+            echo "::error::The published binary refused the default branch of this repository, or could not do its job. Record 0011 is what that code means."
+            exit 1
+          fi
+          if [ ! -s smoke.log ]; then
+            echo "::error::The published binary returned 0 and printed nothing, which is what a binary that never found the tree also does."
+            exit 1
+          fi
+          # THE ASSERTIONS ARE READ OUT OF A REAL RUN AND CHOSEN TO SURVIVE THE
+          # BOARD MOVING. Two words the report always carries, whatever it
+          # found, and a count that has to be above zero.
+          #
+          # What is deliberately not asserted is the number of refusals. A
+          # binary that examined the tree and refused something is a statement
+          # about this board rather than about the release, and the exit code
+          # above already catches it. Nor is the count of experiments, which
+          # moves every time somebody starts one, and an assertion on it would
+          # redden a release smoke test for an ordinary commit.
+          for line in "examined" "refused"; do
+            if ! grep -qF "${line}" smoke.log; then
+              echo "::error::The output does not carry ${line}, so this run cannot say the binary examined anything."
+              exit 1
+            fi
+          done
+
+          # The two sentences below are what the runner prints when it found no
+          # tree to read, and they are the shape of the defect this job exists
+          # for: the binary exits zero and writes a report that looks finished
+          # while every count in it is nought.
+          for absent in "no experiments directory in this tree" "no docs/decisions directory in this tree"; do
+            if grep -qF "${absent}" smoke.log; then
+              echo "::error::The published binary reported: ${absent}. It ran and did not find the checkout it was pointed at."
+              exit 1
+            fi
+          done
+
+          records=$(grep -oE '[0-9]+ decision records read' smoke.log | head -1 | cut -d' ' -f1)
+          if [ -z "${records}" ] || [ "${records}" -le 0 ]; then
+            echo "::error::The published binary read ${records:-no} decision record(s) out of a fresh clone of this repository, which carries them."
+            exit 1
+          fi
+          echo "${PLATFORM}: executed 1 published artefact against a fresh clone; it read ${records} decision record(s) and said what it examined"

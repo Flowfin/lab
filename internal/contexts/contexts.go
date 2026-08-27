@@ -132,6 +132,14 @@ var Absences = []Absence{
 		Why:   "the release workflow runs on a tag and on nothing else, so this context arrives on no pull request at all, and requiring it would hold every merge open waiting for a tick that is not coming",
 		Until: "",
 	},
+	{
+		Name:  "verify the published artefacts",
+		Why:   neverOnAPullRequest,
+		Until: "",
+	},
+	{Name: "smoke (linux/amd64)", Why: neverOnAPullRequest, Until: ""},
+	{Name: "smoke (windows/amd64)", Why: neverOnAPullRequest, Until: ""},
+	{Name: "smoke (darwin/arm64)", Why: neverOnAPullRequest, Until: ""},
 	{Name: "build (linux/amd64)", Why: theSetIsEmpty, Until: "#26"},
 	{Name: "build (linux/arm64)", Why: theSetIsEmpty, Until: "#26"},
 	{Name: "build (darwin/amd64)", Why: theSetIsEmpty, Until: "#26"},
@@ -166,6 +174,15 @@ var Absences = []Absence{
 // theSetIsEmpty is the reason every pending entry above carries, written once so
 // two dozen rows cannot drift into two dozen slightly different sentences.
 const theSetIsEmpty = "the ruleset on the default branch requires no status check at all today, so no name this tree declares can be in a set that has no members"
+
+// neverOnAPullRequest is the reason the release and smoke entries carry, and it
+// is a different kind of absence from the one above. Those entries are waiting
+// for the required set to be assembled; these can never join it, because what
+// their jobs read is a tag or a published release and a pull request has
+// neither. Requiring one would hold every merge open waiting for a tick that is
+// not coming, which is exactly what required-context-nothing-reports exists to
+// refuse.
+const neverOnAPullRequest = "this job runs on a tag or on a published release and on no pull request, so the context arrives on nothing a merge is waiting for, and requiring it would hold every merge open for a tick that is not coming"
 
 // ReportedOutsideAWorkflowFile is every check name that arrives on a commit here
 // and is written in no workflow file, so the reader of those files can never
