@@ -76,6 +76,14 @@ type Build struct {
 
 	// Deps is every module the binary contains beyond the main one.
 	Deps []Module
+
+	// Modified says the build was made from a working tree carrying changes
+	// the version control system does not hold. The toolchain records it as a
+	// build setting, so it is a fact about the binary in exactly the way the
+	// module set is, and it is carried here rather than derived from the
+	// version string: a version says the tree was dirty by appending a
+	// suffix, which is a spelling, and this is the answer.
+	Modified bool
 }
 
 // A Licence is the text one module shipped, and the filename it shipped it
