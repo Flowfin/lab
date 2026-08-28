@@ -37,10 +37,25 @@ board is the GNU General Public License version 3, so that is what the code
 carries out and the receiving side inherits terms rather than finding none.
 This repository declares the same licence to the checks that read one, and
 [docs/decisions/0018-the-licence-of-this-board.md](docs/decisions/0018-the-licence-of-this-board.md)
-is the answer both of them come from. Entry three of issue #46 asks who may
-place a contributor's work under another board's terms and carries no answer,
-so a hand-over of somebody else's work still cannot be completed, and writing
-anything else into this line would be inventing permission nobody gave.
+is the answer both of them come from.
+
+The contributor's consent, where the receiving board's terms differ from that
+licence.
+[docs/decisions/0020-consent-to-promote-under-other-terms.md](decisions/0020-consent-to-promote-under-other-terms.md)
+decides that a result leaves under different terms only with the contributor's
+explicit consent, given at promotion time rather than agreed in advance, and
+written as a `Consent:` line in the promotion section naming who consented and
+the terms they consented to. A hand-over resting on a conversation is one
+nobody can check afterwards, and the moment it gets checked is the worst one
+there is. Where the receiving board carries the same licence there is nothing
+to consent to and this item is not asked for.
+
+Nothing in this repository refuses a promotion section that names no consent.
+The check that reads the section holds it to the four things record `0005`
+names, and adding a fifth is a change to the record format that goes through
+[docs/decisions/0013-how-the-record-format-changes.md](decisions/0013-how-the-record-format-changes.md).
+Record `0020` says as much of itself, and what stands behind this item until
+that lands is whoever does the hand-over and whoever reads the change.
 
 What would have to change for this to be production code, written by whoever
 did the work. They know and nobody else does. An experiment is allowed to cut
