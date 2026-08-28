@@ -27,7 +27,7 @@ all:
 
 ```
 gh api repos/Flowfin/lab/rules/branches/main --jq '[.[].type]'
-["deletion","non_fast_forward","pull_request"]
+["deletion","non_fast_forward","pull_request","required_signatures"]
 
 gh api repos/Flowfin/lab/rules/branches/main \
   --jq '.[] | select(.type=="required_status_checks")
@@ -536,7 +536,22 @@ gh api repos/Flowfin/lab/rules/branches/main \
 ### The rule types
 
 On 2026-08-10 the first two commands printed three types here and four at the
-target.
+target. Re-read on 2026-08-28 they print four here and five there, and the entry
+that arrived on both sides between those two readings is the same one:
+
+```
+gh api repos/Flowfin/lab/rules/branches/main --jq '.[].type'
+deletion
+non_fast_forward
+pull_request
+required_signatures
+gh api repos/Flowfin/jellyfin-plugin-sso/rules/branches/main --jq '.[].type'
+deletion
+non_fast_forward
+required_status_checks
+pull_request
+required_signatures
+```
 
 | Rule type | Here | Target | Verdict |
 | --- | --- | --- | --- |
@@ -544,6 +559,7 @@ target.
 | `non_fast_forward` | Present | Present | Kept, and it carries more weight here than a row suggests. It is the only thing refusing a rewrite of the default branch, and no check in this tree can see one: the runner reads a checkout, so a history replaced under it reads as the tree it was given. |
 | `pull_request` | Present | Present | Kept. Its parameters are the table below. |
 | `required_status_checks` | Absent | Present | The deviation the gap section above is already about, and the largest one in either walk. Issue #26 assembles the set. |
+| `required_signatures` | Present | Present | Kept, and it is the row that moved. It was absent from both boards at every earlier reading of this walk and is configured on both now, so parity settles nothing in either direction. It arrived ahead of the condition `docs/decisions/0023-signed-commits-on-the-default-branch.md` makes it effective on, which is the subject of its own subsection below. |
 
 Enforcement and the bypass list are properties of the ruleset rather than rule
 types, so neither command above prints them. Both boards answer the same way,
@@ -556,7 +572,7 @@ gh api "repos/Flowfin/lab/rulesets/$(gh api repos/Flowfin/lab/rulesets \
 {"bypass":[],"enforcement":"active"}
 ```
 
-An empty bypass list is what makes the three rules above mean anything, because
+An empty bypass list is what makes the four rules above mean anything, because
 an actor on that list is an actor none of them applies to. Issue #26 already
 requires it to stay empty, so nothing here adds a second rule about it.
 
@@ -606,53 +622,101 @@ methods on this board, so a squash or a rebase merge here can break a record of
 either kind, and the only thing standing against it today is whoever picks the
 button. Issue #55 holds the change.
 
-### The rule neither board carries
+### The rule both boards carry now, and the condition it arrived ahead of
 
-A verified signature on every commit is required by neither ruleset. Re-read on
-2026-08-26, `required_signatures` is absent from both:
+A verified signature on every commit was required by neither ruleset at every
+earlier reading of this walk. Both require one now. Re-read on 2026-08-28:
 
 ```
 gh api repos/Flowfin/lab/rules/branches/main --jq '.[].type'
 deletion
 non_fast_forward
 pull_request
+required_signatures
 gh api repos/Flowfin/jellyfin-plugin-sso/rules/branches/main --jq '.[].type'
 deletion
 non_fast_forward
 required_status_checks
 pull_request
+required_signatures
 ```
 
-This walk still does not decide whether to require one, and what it points at
-has moved. The question was an entry on issue #46, and that entry is answered
-and that issue is closed:
+WHAT STOOD HERE SAID NEITHER BOARD CARRIED IT, over a paste read on 2026-08-26,
+under a heading that read as a settled absence rather than as a reading with a
+date on it. The subsection below names the failure a document describing a live
+setting always has, and this is an instance of it rather than an illustration:
+the setting was changed on both boards by hand, nothing in this tree or at the
+target announced it, and what found it was re-running the command before quoting
+the row back.
+
+This walk still does not decide whether to require one, and parity settles
+nothing in either direction, because both sides answer the same way. The
+question was an entry on issue #46, and that entry is answered:
 
 ```
 gh issue view 46 --repo Flowfin/lab --json state,closedAt --jq '"\(.state) \(.closedAt)"'
-CLOSED 2026-08-24T19:11:13Z
+CLOSED 2026-08-27T08:46:01Z
+```
+
+That paste carried `2026-08-24T19:11:13Z` until this reading, and the earlier
+timestamp was correct when it was written rather than wrong. The issue was
+reopened and closed again in between, so a document quoting a closing moment
+carries a value that moves whenever an issue is reopened, which the timeline is
+the authority for:
+
+```
+gh api repos/Flowfin/lab/issues/46/timeline --paginate \n  --jq '.[] | select(.event=="closed" or .event=="reopened")
+        | "\(.event) \(.created_at)"'
+closed 2026-08-24T19:11:13Z
+reopened 2026-08-27T07:19:18Z
+closed 2026-08-27T08:46:01Z
 ```
 
 The answer is `docs/decisions/0023-signed-commits-on-the-default-branch.md`: a
 commit on the default branch has to carry a verified signature, effective as the
 account keys operations#1609 sets up for the working accounts land, and not
 before. That record names this document among the things it applies to, so the
-walk points at the record rather than at the issue that collected the question,
-and parity settles nothing in either direction, because the target does not
-require one either.
+walk points at the record rather than at the issue that collected the question.
 
-A rule that has been decided is not a rule that is configured, and that is the
-half of this section a reader is most likely to collapse. Nothing above changes
-the paste at the top of it. The setting is absent from both rulesets today, the
-record says of itself that nothing in this tree refuses an unsigned commit, and
-the condition that makes it effective is an issue on another board that is open:
+THE SETTING ARRIVED AHEAD OF THAT CONDITION, and the gap is what a reader of
+this row should take from it rather than the parity. Record 0023 gives its
+reason for the ordering in one sentence: a rule that refuses every merge before
+anybody holds a key is a rule that gets turned off rather than followed. The
+issue holding the keys is open:
 
 ```
 gh issue view 1609 --repo iderex/operations --json state --jq '.state'
 OPEN
 ```
 
-So this row is a decision waiting on a key, and reading it as a rule standing
-behind a merge here would be reading it for more than it is.
+So a merge on this board refuses an unsigned commit today while the custody
+story the record conditions that refusal on is unfinished. It has not yet cost a
+landing here, because the commits reaching the default branch carry a signature
+the platform verifies. Read at the three most recent non-merge commits:
+
+```
+for c in 45bfe62 2edacce 43b4fae; do
+  gh api repos/Flowfin/lab/commits/$c --jq '.commit.verification | "\(.verified) \(.reason)"'
+done
+true valid
+true valid
+true valid
+```
+
+Three commits are three commits and not a property of every account that may
+push here. This board takes experiments from anybody, an unsigned history
+refuses the merge rather than the commit, and the repair is rebuilding the
+branch at the end of the work, which record 0023 already writes down as the
+moment it is most expensive. Whether the setting should stand before
+operations#1609 closes is not a question this walk takes, and it is not one this
+document can answer: the ruleset is not in this tree, and `allowed_merge_methods`
+remains the only ruleset edit this document asks for.
+
+A rule that is configured is not a rule this tree refuses, and that is the half
+of this section a reader is most likely to collapse in the other direction now.
+The record says of itself that nothing here refuses an unsigned commit, and that
+is unchanged: the requirement is a setting on the branch protection, no check in
+this repository reads a signature, and a green run says nothing about one.
 
 ### What this walk cannot do
 
