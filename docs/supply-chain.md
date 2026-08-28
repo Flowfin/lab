@@ -120,10 +120,12 @@ person follows here and no machine enforces it.
 `project has 0 contributing companies or organizations -- score normalized to 0`
 
 Accepted, and outside this repository's control. The check counts the
-organisations that the accounts contributing here belong to. Nothing a change in
-this tree can do moves it, and whether this board takes contributions from
-outside at all is an open question on issue #46 rather than something to score
-against.
+organisations that the accounts contributing here belong to, which the line
+above says is none. Nothing a change in this tree can do moves it, and who may
+contribute here is answered rather than open:
+`docs/decisions/0024-who-may-run-an-experiment-here.md` decides that this board
+takes experiments from anybody. An open door and a count of organisations are
+different things, and only the second is scored.
 
 ### Dangerous-Workflow, 10
 
@@ -204,10 +206,13 @@ rather than a finding. It will start reporting on its own.
 
 `packaging workflow not detected`
 
-Did not apply, and whether it ever should is an open question. Entry four on
-issue #46 asks whether this board publishes downloadable artefacts at all. If the
-answer is no, this check stays at `-1` permanently and that is the correct
-outcome rather than a gap.
+Did not apply, and the question this row rested on is answered.
+`docs/decisions/0021-what-this-board-publishes.md` decides that this board
+publishes downloadable artefacts and that they are signed, so the outcome this
+row used to name as correct - a permanent `-1` because nothing is ever
+published - is not available. What the check looks for is a packaging workflow,
+which a workflow publishing a release is not necessarily, so re-read this row
+against a scored run once a release exists rather than predicting it here.
 
 ### Pinned-Dependencies, 10
 
@@ -270,8 +275,10 @@ the deduction stays.
 `no releases found`
 
 Did not apply, and it cannot pass until there are releases. Accepted now, reopened
-by the release milestone. Whether artefacts are published and whether they are
-signed are both entry four on issue #46.
+by the release milestone. Both halves are decided rather than open:
+`docs/decisions/0021-what-this-board-publishes.md` says this board publishes
+downloadable artefacts and that they are signed, so what this row waits on is a
+release rather than an answer.
 
 ### Token-Permissions, 10
 
