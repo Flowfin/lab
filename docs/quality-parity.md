@@ -665,7 +665,8 @@ carries a value that moves whenever an issue is reopened, which the timeline is
 the authority for:
 
 ```
-gh api repos/Flowfin/lab/issues/46/timeline --paginate \n  --jq '.[] | select(.event=="closed" or .event=="reopened")
+gh api repos/Flowfin/lab/issues/46/timeline --paginate \
+  --jq '.[] | select(.event=="closed" or .event=="reopened")
         | "\(.event) \(.created_at)"'
 closed 2026-08-24T19:11:13Z
 reopened 2026-08-27T07:19:18Z
@@ -678,21 +679,32 @@ account keys operations#1609 sets up for the working accounts land, and not
 before. That record names this document among the things it applies to, so the
 walk points at the record rather than at the issue that collected the question.
 
-THE SETTING ARRIVED AHEAD OF THAT CONDITION, and the gap is what a reader of
-this row should take from it rather than the parity. Record 0023 gives its
-reason for the ordering in one sentence: a rule that refuses every merge before
-anybody holds a key is a rule that gets turned off rather than followed. The
-issue holding the keys is open:
+THE SETTING ARRIVED AHEAD OF THAT CONDITION AND THE CONDITION HAS SINCE BEEN
+MET, which is two readings rather than one and only the first of them is a fact
+about the ordering. Record 0023 gives its reason for that ordering in one
+sentence: a rule that refuses every merge before anybody holds a key is a rule
+that gets turned off rather than followed. The issue holding the keys is closed:
 
 ```
 gh issue view 1609 --repo iderex/operations --json state --jq '.state'
-OPEN
+CLOSED
 ```
 
-So a merge on this board refuses an unsigned commit today while the custody
-story the record conditions that refusal on is unfinished. It has not yet cost a
-landing here, because the commits reaching the default branch carry a signature
-the platform verifies. Read at the three most recent non-merge commits:
+WHAT STOOD HERE PASTED `OPEN` UNDER THAT COMMAND, and said a merge on this
+board refuses an unsigned commit while the custody story the record conditions
+that refusal on is unfinished. Both halves were correct when they were written
+and the first stopped reproducing on 2026-08-28. What found it was running the
+command before quoting the row back, which is the only way this class is found:
+a claim about another artefact reads the same whether or not the artefact still
+says it. A state moves in both directions and an issue can be reopened, so the
+paste above is a reading with a date on it rather than the answer.
+
+So the gap this row was about is closed rather than open, and what is left of it
+is smaller and worth stating exactly. The requirement is configured on both
+boards and the condition record 0023 makes it effective on has been met. That it
+has not cost a landing here is a separate reading and it still holds, because
+the commits reaching the default branch carry a signature the platform verifies.
+Read at the three most recent non-merge commits:
 
 ```
 for c in 45bfe62 2edacce 43b4fae; do
@@ -707,10 +719,14 @@ Three commits are three commits and not a property of every account that may
 push here. This board takes experiments from anybody, an unsigned history
 refuses the merge rather than the commit, and the repair is rebuilding the
 branch at the end of the work, which record 0023 already writes down as the
-moment it is most expensive. Whether the setting should stand before
-operations#1609 closes is not a question this walk takes, and it is not one this
-document can answer: the ruleset is not in this tree, and `allowed_merge_methods`
-remains the only ruleset edit this document asks for.
+moment it is most expensive. The keys landing does not make that smaller: a key
+held by the account that cuts this board's changes says nothing about a
+contributor who holds none, and record 0023 says in as many words that it
+decides a signature is required and does not decide what happens to somebody
+with no key. Whether the setting should stand at all is still not a question
+this walk takes, and it is not one this document can answer: the ruleset is not
+in this tree, and `allowed_merge_methods` remains the only ruleset edit this
+document asks for.
 
 A rule that is configured is not a rule this tree refuses, and that is the half
 of this section a reader is most likely to collapse in the other direction now.
