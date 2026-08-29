@@ -152,6 +152,79 @@ it is outside the target's. It publishes from the default branch and cannot
 gate a pull request, so requiring it would require a context that never
 arrives on the thing being gated.
 
+Five more names this tree declares carried no verdict here until this
+paragraph, and they are a different case from the five above. Those are waiting
+for a required set to join. These can never join one.
+
+The sweep, read at `9208ceb599a294328bde3d8b660c65a5fd3c5fb5` rather than at
+`origin/main`, because the paragraphs below are what change its output and a
+paste that stops reproducing the moment it lands is the drift this document
+warns about at the top:
+
+```
+git show 9208ceb599a294328bde3d8b660c65a5fd3c5fb5:internal/contexts/contexts.go \
+  | grep -oE 'Name: +"[^"]+"' | sed 's/Name: *"//; s/"$//' | sort -u \
+  | while read -r n; do
+      git grep -q -F "$n" 9208ceb599a294328bde3d8b660c65a5fd3c5fb5 \
+        -- docs/quality-parity.md || echo "no literal: $n"
+    done
+no literal: build (darwin/amd64)
+no literal: build (darwin/arm64)
+no literal: build (linux/amd64)
+no literal: build (linux/arm64)
+no literal: build (windows/amd64)
+no literal: build (windows/arm64)
+no literal: smoke (darwin/arm64)
+no literal: smoke (linux/amd64)
+no literal: smoke (windows/amd64)
+no literal: verify the published artefacts
+```
+
+The six `build` entries are the one place a literal is deliberately absent.
+Their verdict is the `build` row of the table above, which reaches them through
+`docs/decisions/0012-the-supported-platforms.md`, and writing the six strings
+out here would be this document enumerating what that record decides. The other
+four are a gap. A fifth name is one too and this sweep cannot show it:
+`release` matches as a word inside the reason on the SBOM row rather than as a
+verdict of its own, which is the false pass a fixed-string comparison gives and
+the reason the tree holds the list that decides this in
+`internal/contexts/contexts.go` instead.
+
+All five are dropped from the required set, permanently rather than until #26.
+What their jobs read is a tag or a published release, and a pull request has
+neither, so these contexts arrive on nothing a merge is waiting for and
+requiring one would hold every merge open for a tick that is not coming. That
+is what `required-context-nothing-reports` exists to refuse, so the two
+directions of the comparison would contradict each other. Four of the five
+carry that reason as a shared constant:
+
+```
+git show origin/main:internal/contexts/contexts.go \
+  | awk '/^var Absences/,/^}$/' | tr '\n' ' ' \
+  | grep -oE '\{[^{}]*neverOnAPullRequest[^{}]*\}' | grep -oE 'Name: +"[^"]+"'
+Name:  "verify the published artefacts"
+Name: "smoke (linux/amd64)"
+Name: "smoke (windows/amd64)"
+Name: "smoke (darwin/arm64)"
+```
+
+`release` carries a reason of its own in the same list because its job runs on a
+tag push and on nothing else, which is narrower than what the shared sentence
+says. The workflow files agree with the list rather than being described by it:
+`.github/workflows/release.yml` triggers on `push` with a tag pattern and
+declares no pull-request trigger, and `.github/workflows/smoke.yml` says at its
+own trigger block that the names its jobs report under arrive on no pull
+request at all and that `internal/contexts` carries them as permanent
+deliberate absences.
+
+Dropped from the gate is not dropped as a rule, and the smoke jobs are the case
+where the difference matters most. They are the only thing in this repository
+that reads what an operator downloads rather than the source it was built from,
+which is the distance every other check here is blind to. They hold that rule
+on a published release and on a schedule instead of on a pull request, so what
+is given up by leaving them out of the required set is the moment the failure is
+caught rather than whether it is caught.
+
 ## What each side reports today
 
 Neither list is written here. Both are printed, from a completed run rather
