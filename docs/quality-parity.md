@@ -152,6 +152,79 @@ it is outside the target's. It publishes from the default branch and cannot
 gate a pull request, so requiring it would require a context that never
 arrives on the thing being gated.
 
+Five more names this tree declares carried no verdict here until this
+paragraph, and they are a different case from the five above. Those are waiting
+for a required set to join. These can never join one.
+
+The sweep, read at `9208ceb599a294328bde3d8b660c65a5fd3c5fb5` rather than at
+`origin/main`, because the paragraphs below are what change its output and a
+paste that stops reproducing the moment it lands is the drift this document
+warns about at the top:
+
+```
+git show 9208ceb599a294328bde3d8b660c65a5fd3c5fb5:internal/contexts/contexts.go \
+  | grep -oE 'Name: +"[^"]+"' | sed 's/Name: *"//; s/"$//' | sort -u \
+  | while read -r n; do
+      git grep -q -F "$n" 9208ceb599a294328bde3d8b660c65a5fd3c5fb5 \
+        -- docs/quality-parity.md || echo "no literal: $n"
+    done
+no literal: build (darwin/amd64)
+no literal: build (darwin/arm64)
+no literal: build (linux/amd64)
+no literal: build (linux/arm64)
+no literal: build (windows/amd64)
+no literal: build (windows/arm64)
+no literal: smoke (darwin/arm64)
+no literal: smoke (linux/amd64)
+no literal: smoke (windows/amd64)
+no literal: verify the published artefacts
+```
+
+The six `build` entries are the one place a literal is deliberately absent.
+Their verdict is the `build` row of the table above, which reaches them through
+`docs/decisions/0012-the-supported-platforms.md`, and writing the six strings
+out here would be this document enumerating what that record decides. The other
+four are a gap. A fifth name is one too and this sweep cannot show it:
+`release` matches as a word inside the reason on the SBOM row rather than as a
+verdict of its own, which is the false pass a fixed-string comparison gives and
+the reason the tree holds the list that decides this in
+`internal/contexts/contexts.go` instead.
+
+All five are dropped from the required set, permanently rather than until #26.
+What their jobs read is a tag or a published release, and a pull request has
+neither, so these contexts arrive on nothing a merge is waiting for and
+requiring one would hold every merge open for a tick that is not coming. That
+is what `required-context-nothing-reports` exists to refuse, so the two
+directions of the comparison would contradict each other. Four of the five
+carry that reason as a shared constant:
+
+```
+git show origin/main:internal/contexts/contexts.go \
+  | awk '/^var Absences/,/^}$/' | tr '\n' ' ' \
+  | grep -oE '\{[^{}]*neverOnAPullRequest[^{}]*\}' | grep -oE 'Name: +"[^"]+"'
+Name:  "verify the published artefacts"
+Name: "smoke (linux/amd64)"
+Name: "smoke (windows/amd64)"
+Name: "smoke (darwin/arm64)"
+```
+
+`release` carries a reason of its own in the same list because its job runs on a
+tag push and on nothing else, which is narrower than what the shared sentence
+says. The workflow files agree with the list rather than being described by it:
+`.github/workflows/release.yml` triggers on `push` with a tag pattern and
+declares no pull-request trigger, and `.github/workflows/smoke.yml` says at its
+own trigger block that the names its jobs report under arrive on no pull
+request at all and that `internal/contexts` carries them as permanent
+deliberate absences.
+
+Dropped from the gate is not dropped as a rule, and the smoke jobs are the case
+where the difference matters most. They are the only thing in this repository
+that reads what an operator downloads rather than the source it was built from,
+which is the distance every other check here is blind to. They hold that rule
+on a published release and on a schedule instead of on a pull request, so what
+is given up by leaving them out of the required set is the moment the failure is
+caught rather than whether it is caught.
+
 ## What each side reports today
 
 Neither list is written here. Both are printed, from a completed run rather
@@ -365,8 +438,15 @@ unaffected.
 
 A context that arrives on some pull requests and not on others is what this
 section is written against, and three of the ways to build one are readable in
-these files rather than walked. The readings below were made at `1fc6961` and
-cover every workflow file in the tree at that commit.
+these files rather than walked. The readings below were made at
+`9208ceb599a294328bde3d8b660c65a5fd3c5fb5` and cover every workflow file in the
+tree at that commit. They replace a reading made at `1fc6961`, two of whose five
+pastes had stopped reproducing by the time this one was taken: five files carry
+no branch filter that reads every branch where three did, and two carry a type
+filter where one did. Both differences are this board gaining the release and
+smoke workflows, and neither of those runs on a pull request. The other three,
+the path filters, the branch filter under `dependency-review.yml` and the `if:`
+keys, reproduce unchanged at this commit.
 
 A path filter is the ordinary way it happens, and no workflow here carries one:
 
@@ -376,30 +456,43 @@ exit=1
 ```
 
 A trigger narrowed to some branches is the same failure by a second route, and
-three of these files carry no branch filter that reads every branch:
+five of these files carry no branch filter that reads every branch:
 
 ```
 git grep -L 'branches: \[ *"\*\*" *\]' origin/main -- .github/workflows/
 origin/main:.github/workflows/dco.yml
 origin/main:.github/workflows/dependency-review.yml
+origin/main:.github/workflows/release.yml
 origin/main:.github/workflows/scorecard.yml
+origin/main:.github/workflows/smoke.yml
 ```
 
-The third is the supply-chain self-audit, which declares no pull-request
-trigger at all and is outside the required set already. Neither of the other
-two narrows anything. `dependency-review.yml` writes no branch filter under any
-of its triggers, which is every branch:
+Three of the five declare no pull-request trigger at all and are outside the
+required set already, permanently rather than until #26. The supply-chain
+self-audit publishes from the default branch; the release and smoke workflows
+read a tag or a published release, which is the verdict written for them above
+under what this board adds. A file that runs on no pull request cannot narrow
+one, so the membership of this command grows every time this board gains a
+workflow of that shape, and the growth answers nothing the section asks. What
+it is worth reading for is a file that does run on a pull request appearing in
+it.
+
+Neither of the two that do narrows anything. `dependency-review.yml` writes no
+branch filter under any of its triggers, which is every branch:
 
 ```
 git grep -n 'branches:' origin/main -- .github/workflows/dependency-review.yml ; echo "exit=$?"
 exit=1
 ```
 
-`dco.yml` carries the only type filter in these files:
+`dco.yml` carries the only type filter on a pull-request trigger in these
+files. One other carries the key, on a trigger that is not a pull request at
+all:
 
 ```
 git grep -n 'types:' origin/main -- .github/workflows/
 origin/main:.github/workflows/dco.yml:13:    types: [opened, synchronize, reopened]
+origin/main:.github/workflows/smoke.yml:41:    types: [published]
 ```
 
 The claim about the three types it names is that they are the three the
