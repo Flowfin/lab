@@ -7,7 +7,7 @@ archaeology.
 
 This is the list somebody works through before the hand-over. What the record
 then says is fixed by
-[docs/decisions/0005-how-a-result-leaves.md](docs/decisions/0005-how-a-result-leaves.md),
+[docs/decisions/0005-how-a-result-leaves.md](decisions/0005-how-a-result-leaves.md),
 which this document does not restate. Work through the list, then write the
 section that record describes.
 
@@ -36,7 +36,7 @@ The licence the code carries out. [LICENSE](../LICENSE) at the root of this
 board is the GNU General Public License version 3, so that is what the code
 carries out and the receiving side inherits terms rather than finding none.
 This repository declares the same licence to the checks that read one, and
-[docs/decisions/0018-the-licence-of-this-board.md](docs/decisions/0018-the-licence-of-this-board.md)
+[docs/decisions/0018-the-licence-of-this-board.md](decisions/0018-the-licence-of-this-board.md)
 is the answer both of them come from.
 
 The contributor's consent, where the receiving board's terms differ from that
