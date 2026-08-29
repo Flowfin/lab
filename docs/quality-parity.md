@@ -167,25 +167,29 @@ git show 9208ceb599a294328bde3d8b660c65a5fd3c5fb5:internal/contexts/contexts.go 
   | while read -r n; do
       git grep -q -F "$n" 9208ceb599a294328bde3d8b660c65a5fd3c5fb5 \
         -- docs/quality-parity.md || echo "no literal: $n"
-    done
-no literal: build (darwin/amd64)
-no literal: build (darwin/arm64)
-no literal: build (linux/amd64)
-no literal: build (linux/arm64)
-no literal: build (windows/amd64)
-no literal: build (windows/arm64)
+    done | grep -v '^no literal: build ('
 no literal: smoke (darwin/arm64)
 no literal: smoke (linux/amd64)
 no literal: smoke (windows/amd64)
 no literal: verify the published artefacts
 ```
 
-The six `build` entries are the one place a literal is deliberately absent.
-Their verdict is the `build` row of the table above, which reaches them through
-`docs/decisions/0012-the-supported-platforms.md`, and writing the six strings
-out here would be this document enumerating what that record decides. The other
-four are a gap. A fifth name is one too and this sweep cannot show it:
-`release` matches as a word inside the reason on the SBOM row rather than as a
+The last stage is why this paste is four lines rather than ten, and it is not
+tidying. The sweep also returns the six per-platform `build` entries, whose
+verdict is the `build` row of the table above and reaches them through
+`docs/decisions/0012-the-supported-platforms.md`. Those six are the one place a
+literal is deliberately absent here, so pasting the unfiltered output would
+write the six strings into this document and end the absence in the act of
+describing it. The stage drops them by the row name the table already carries
+rather than by naming any of the six.
+
+That the paste needs the stage at all is the shape to take from this section: a
+sweep for names this document does not carry cannot have its full output pasted
+into this document, because the paste is what makes the answer wrong. What is
+left after the stage is the gap, and it is four names.
+
+A fifth name is one too and this sweep cannot show it at all. `release`
+matches as a word inside the reason on the SBOM row rather than as a
 verdict of its own, which is the false pass a fixed-string comparison gives and
 the reason the tree holds the list that decides this in
 `internal/contexts/contexts.go` instead.
