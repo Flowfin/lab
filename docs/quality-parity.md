@@ -438,8 +438,15 @@ unaffected.
 
 A context that arrives on some pull requests and not on others is what this
 section is written against, and three of the ways to build one are readable in
-these files rather than walked. The readings below were made at `1fc6961` and
-cover every workflow file in the tree at that commit.
+these files rather than walked. The readings below were made at
+`9208ceb599a294328bde3d8b660c65a5fd3c5fb5` and cover every workflow file in the
+tree at that commit. They replace a reading made at `1fc6961`, two of whose five
+pastes had stopped reproducing by the time this one was taken: five files carry
+no branch filter that reads every branch where three did, and two carry a type
+filter where one did. Both differences are this board gaining the release and
+smoke workflows, and neither of those runs on a pull request. The other three,
+the path filters, the branch filter under `dependency-review.yml` and the `if:`
+keys, reproduce unchanged at this commit.
 
 A path filter is the ordinary way it happens, and no workflow here carries one:
 
@@ -449,30 +456,43 @@ exit=1
 ```
 
 A trigger narrowed to some branches is the same failure by a second route, and
-three of these files carry no branch filter that reads every branch:
+five of these files carry no branch filter that reads every branch:
 
 ```
 git grep -L 'branches: \[ *"\*\*" *\]' origin/main -- .github/workflows/
 origin/main:.github/workflows/dco.yml
 origin/main:.github/workflows/dependency-review.yml
+origin/main:.github/workflows/release.yml
 origin/main:.github/workflows/scorecard.yml
+origin/main:.github/workflows/smoke.yml
 ```
 
-The third is the supply-chain self-audit, which declares no pull-request
-trigger at all and is outside the required set already. Neither of the other
-two narrows anything. `dependency-review.yml` writes no branch filter under any
-of its triggers, which is every branch:
+Three of the five declare no pull-request trigger at all and are outside the
+required set already, permanently rather than until #26. The supply-chain
+self-audit publishes from the default branch; the release and smoke workflows
+read a tag or a published release, which is the verdict written for them above
+under what this board adds. A file that runs on no pull request cannot narrow
+one, so the membership of this command grows every time this board gains a
+workflow of that shape, and the growth answers nothing the section asks. What
+it is worth reading for is a file that does run on a pull request appearing in
+it.
+
+Neither of the two that do narrows anything. `dependency-review.yml` writes no
+branch filter under any of its triggers, which is every branch:
 
 ```
 git grep -n 'branches:' origin/main -- .github/workflows/dependency-review.yml ; echo "exit=$?"
 exit=1
 ```
 
-`dco.yml` carries the only type filter in these files:
+`dco.yml` carries the only type filter on a pull-request trigger in these
+files. One other carries the key, on a trigger that is not a pull request at
+all:
 
 ```
 git grep -n 'types:' origin/main -- .github/workflows/
 origin/main:.github/workflows/dco.yml:13:    types: [opened, synchronize, reopened]
+origin/main:.github/workflows/smoke.yml:41:    types: [published]
 ```
 
 The claim about the three types it names is that they are the three the
