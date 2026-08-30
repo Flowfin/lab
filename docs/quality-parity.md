@@ -817,16 +817,38 @@ is smaller and worth stating exactly. The requirement is configured on both
 boards and the condition record 0023 makes it effective on has been met. That it
 has not cost a landing here is a separate reading and it still holds, because
 the commits reaching the default branch carry a signature the platform verifies.
-Read at the three most recent non-merge commits:
+Read at whatever the three most recent non-merge commits are when the command
+runs, so the trio moves with the branch instead of being three names typed into
+a document:
 
 ```
-for c in 45bfe62 2edacce 43b4fae; do
+for c in $(git log origin/main --no-merges -3 --format='%H'); do
   gh api repos/Flowfin/lab/commits/$c --jq '.commit.verification | "\(.verified) \(.reason)"'
 done
 true valid
 true valid
 true valid
 ```
+
+WHAT STOOD HERE NAMED THREE COMMITS AND CALLED THEM THE THREE MOST RECENT. Read
+on 2026-08-30 they were the twelfth, thirteenth and fourteenth:
+
+```
+git log origin/main --no-merges --format=%h | grep -n '^45bfe62\|^2edacce\|^43b4fae'
+12:45bfe62
+13:2edacce
+14:43b4fae
+```
+
+Each of the three still answers `true valid`, so what stopped reproducing was
+the superlative above the paste rather than the output under it, and that is the
+half of this class hardest to see: a reader checking the evidence checks the
+output, and the output was right. What found it was running the command before
+quoting the row back, which is how every earlier repair in this section was
+found as well. A command that derives its own subjects cannot go wrong in that
+direction, and what a re-run refuses instead is the thing this paragraph is
+about, which is a commit reaching the default branch without a signature the
+platform verifies.
 
 Three commits are three commits and not a property of every account that may
 push here. This board takes experiments from anybody, an unsigned history
