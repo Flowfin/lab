@@ -254,14 +254,24 @@ any of them goes into a required set. Issue #62 holds this walk.
 ### The command above reads a commit no pull request produced
 
 `git rev-parse origin/main` resolves a commit on the default branch, which is
-reached by a push. Three workflows in this tree carry no push trigger:
+reached by a push. Four workflows in this tree carry no push trigger:
 
 ```
 git grep -L 'push:' origin/main -- .github/workflows/
 origin/main:.github/workflows/dco.yml
 origin/main:.github/workflows/dependency-review.yml
 origin/main:.github/workflows/pull-request.yml
+origin/main:.github/workflows/smoke.yml
 ```
+
+Three of those four run on a pull request and the fourth runs on neither kind of
+commit, and only the first three are what this section is about.
+`.github/workflows/smoke.yml` triggers on a published release, on a schedule and
+on a manual dispatch, so it reports on no pull request and on no push, and it is
+in this list for a reason the list is not about. That is the thing to read the
+grep for: it gains a member every time this board adds a workflow that runs on
+neither, and what would matter here is a file that does run on a pull request
+appearing in it.
 
 So the two kinds of commit report different sets, and the difference runs in
 both directions. Between the head of the default branch and the head of a pull
@@ -312,8 +322,8 @@ suite 86798670354, success
 suite 86798547856, success
 ```
 
-The cause is one trigger. Every push trigger in these files names the default
-branch except one:
+The cause is one trigger. Every push trigger in these files that names a branch
+names the default branch except one, and one names no branch at all:
 
 ```
 for f in $(git ls-tree --name-only origin/main .github/workflows/); do
@@ -327,10 +337,16 @@ done
 .github/workflows/invariants.yml branches: [main]
 .github/workflows/prose.yml branches: [main]
 .github/workflows/records.yml branches: [main]
+.github/workflows/release.yml tags:
 .github/workflows/scorecard.yml branches: [main]
 .github/workflows/unicode-guard.yml branches: ["**"]
 .github/workflows/zizmor.yml branches: [ main ]
 ```
+
+The `tags:` line is the second kind and it doubles nothing. A tag push is not a
+branch push, so `.github/workflows/release.yml` starts on neither a pull request
+nor the branch one is opened from, and the file says that at its own trigger.
+What produces the repeated name is the entry above carrying every branch.
 
 A branch pushed for a pull request therefore starts that one workflow twice,
 and both runs report under its job name. The file gives the reason its trigger
