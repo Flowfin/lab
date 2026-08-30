@@ -265,6 +265,20 @@ jobs:
         # rather than publishing an unsigned set, because record 0021 says the
         # artefacts are signed and a release that quietly drops the signature is
         # the decision being reversed by an absent value.
+        #
+        # WHERE THE SECRET IS PRESENT AND WILL NOT SIGN, THE STEP SAYS WHICH
+        # SHAPE OF KEY DID THAT, because ssh-keygen's own messages name neither
+        # cause. A key carrying a passphrase reports an incorrect passphrase,
+        # having read an empty one from a runner with no terminal to ask at. A
+        # key whose line endings are CRLF reports a public key that does not
+        # exist, which points at a second file rather than at the one byte
+        # sequence that is wrong. Both return 255, both are a secret set
+        # wrongly rather than a release built wrongly, and this step is the only
+        # place that distinction can be drawn.
+        #
+        # THE KEY FILE IS REMOVED ON BOTH PATHS. Before this, a refusal from
+        # ssh-keygen ended the step through `set -e` and left the private half
+        # written to the runner's temporary directory.
         env:
           OUT: ${{ runner.temp }}/dist
           SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
@@ -278,8 +292,15 @@ jobs:
           key="${RUNNER_TEMP}/signing-key"
           umask 077
           printf '%s\n' "${SIGNING_KEY}" > "${key}"
-          ssh-keygen -Y sign -f "${key}" -n file "${OUT}/assets/SHA256SUMS"
+          set +e
+          ssh-keygen -Y sign -f "${key}" -n file "${OUT}/assets/SHA256SUMS" 2>&1
+          signed=$?
+          set -e
           rm -f "${key}"
+          if [ "${signed}" -ne 0 ]; then
+            echo "::error::ssh-keygen would not sign with the key RELEASE_SIGNING_KEY holds, and returned ${signed}. Two shapes of private key produce that and neither of ssh-keygen's own messages says which: one carrying a passphrase, which nothing on a runner can enter, and one whose line endings are CRLF, which reports a public key that does not exist rather than a private key it could not read. The secret holds the unencrypted OpenSSH private half, with LF line endings, and nothing else."
+            exit 1
+          fi
 
           if [ ! -s "${OUT}/assets/SHA256SUMS.sig" ]; then
             echo "::error::Signing wrote no signature."
