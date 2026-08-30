@@ -224,7 +224,16 @@ jobs:
             exit 1
           fi
           echo "${PLATFORM}: $(basename "${binary}") matches its published digest ${want}"
-          echo "BINARY=${binary}" >> "${GITHUB_ENV}"
+          # THE PATH HANDED ON IS RELATIVE TO THE WORKSPACE AND NEVER TO THE
+          # DIRECTORY THIS STEP IS STANDING IN. The `cd` above lives and dies
+          # with this step: the platform starts every step in the workspace, so
+          # a `find .` result written into the environment file resolves one
+          # directory too high when the step that executes it reads it back.
+          # What that produced was not a missing file anybody would recognise.
+          # The run step reports a non-zero code as the binary having refused
+          # the tree, so a released artefact that was never executed at all
+          # reddened the smoke job with a message about record 0011.
+          echo "BINARY=download/$(basename "${binary}")" >> "${GITHUB_ENV}"
 
       - name: Clone the default branch fresh
         # A clone rather than a checkout of this repository, because what an
