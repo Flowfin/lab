@@ -15,10 +15,68 @@ gh api repos/Flowfin/jellyfin-plugin-sso/rules/branches/main \
         | .parameters.required_status_checks[].context'
 ```
 
-On 2026-08-10 that printed thirteen contexts, and the table below carries one
-row for each of them. Re-run the command before trusting the table. A row that
-no longer has an entry behind it, or an entry with no row, is the drift this
-document is most likely to develop, and finding it costs one command.
+On 2026-08-10 that printed thirteen contexts, and the table below was written
+with one row for each of them. Re-run the command before trusting the table. A
+row that no longer has an entry behind it, or an entry with no row, is the drift
+this document is most likely to develop, and finding it costs one command.
+
+That drift is here, in the direction of a row with nothing behind it. Both sides
+read in the same minute, at `5500dc763f2f91c910b1e8c59abc1f05c611017d`:
+
+```
+gh api repos/Flowfin/jellyfin-plugin-sso/rules/branches/main \
+  --jq '.[] | select(.type=="required_status_checks")
+        | .parameters.required_status_checks[].context' | sort > entries.txt
+wc -l < entries.txt
+12
+
+git show origin/main:docs/quality-parity.md \
+  | sed -n '/^| Target context/,/^$/p' | grep '^| `' \
+  | sed 's/^| `//; s/`.*//' | sort > rows.txt
+wc -l < rows.txt
+13
+
+comm -23 rows.txt entries.txt
+Package (JPRM) / Generate SBOM
+
+comm -13 rows.txt entries.txt
+(no output)
+```
+
+One row and no entry, and nothing the other way, so the table is thirteen rows
+over a set of twelve. The last reading in which that row had an entry is this
+document's own, above, and it is three weeks old; when the entry left is not
+something either command says.
+
+What that costs the table is less than the count suggests, and the reason is
+worth reading before the row. The verdict in it is this board's own rather than
+one inherited from the target: a bill of materials is owed for anything
+downloadable whoever else requires one, and #37 is where it is built. So the row
+stays and its reason is untouched. What it stops being is a row about something
+the target requires today, and it is marked as such in the table rather than
+here.
+
+The set #26 assembles is unmoved either way. That row is already outside this
+board's gate rather than kept in it, so a reading that took its entry as present
+and a reading that takes it as gone assemble the same required set.
+
+The job the entry named is still declared on the target, behind a job-level
+condition:
+
+```
+gh api repos/Flowfin/jellyfin-plugin-sso/contents/.github/workflows/build.yml \
+  --jq '.content' | base64 -d | sed -n '102,105p'
+  sbom:
+    name: Generate SBOM
+    if: ${{ inputs.attest }}
+    runs-on: ubuntu-latest
+```
+
+A job behind a condition reports nothing at all rather than reporting success,
+which is the third of the three cases #62 is written against, and this is the
+first of the three readable on the target rather than on this board. Whether
+that condition is why the entry is no longer required is not something the
+reading above says, and nothing here was asked that would answer it.
 
 ## The gap this rests on
 
@@ -52,7 +110,7 @@ today no tick does.
 | `build` | Kept, renamed | This repository builds a runner rather than a plugin assembly, and the entries are per platform, which `docs/decisions/0012-the-supported-platforms.md` fixes. |
 | `ABI floor build` | Dropped | It exists so a plugin loads against the oldest server it claims to support, and nothing here loads into a host. |
 | `Package (JPRM) / Build package` | Dropped | This repository ships no plugin, so there is no package to build. |
-| `Package (JPRM) / Generate SBOM` | Kept in substance, moved out of the gate | A bill of materials is owed for anything downloadable, and this one is produced by the release build rather than by a check on a pull request. Issue #37 builds it and nothing in this tree produces one today. |
+| `Package (JPRM) / Generate SBOM` | Kept in substance, moved out of the gate, and the entry behind this row has left the target's set | A bill of materials is owed for anything downloadable, and this one is produced by the release build rather than by a check on a pull request. Issue #37 builds it and nothing in this tree produces one today. The target no longer requires this context, which is read at the top of this document; the verdict here rests on this board's own reason and does not move with it. |
 | `CodeQL` | Kept, retargeted | Static analysis of the runner's own source, in the language record `0001` chose rather than in C#. Two strings arrive here for it, the analysis job's `CodeQL (go)` and the code-scanning upload's `CodeQL`. Which of the two a required set can hold is open rather than decided below: the section on which contexts arrive separates the strings, and says of the upload name that the route which would decide it has not been walked. Issue #62 holds that walk. |
 | `Analyze (csharp)` | Dropped as a name | The language-specific analysis job is replaced by the equivalent for this language rather than carried across under a name that describes nothing here. |
 | `DCO sign-off` | Kept unchanged | Already in the tree, asserting the text at `DCO` on every non-merge commit. |
