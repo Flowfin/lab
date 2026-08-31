@@ -33,7 +33,8 @@ field filled in teaches every new record to declare a value it does not have, an
 almost every experiment borrows nothing. The code itself goes in
 `experiments/<slug>/borrowed/`, which carries its own `LICENSE` naming those
 terms, and a record declaring the field with no such directory is refused, as is
-a borrowed directory with no licence file in it.
+a borrowed directory with no licence file in it and a borrowed directory in an
+experiment whose record declares the field nowhere.
 
 That directory is the only place a quarantine may be, and one is all record
 `0019` allows, so a directory named `borrowed` anywhere else in the experiment
@@ -43,8 +44,10 @@ by whoever wrote it and this board does not rearrange it.
 What that refusal does not do is worth knowing before you rely on it. Nothing
 reads the licence file, so a green run says the layout and the declaration agree
 and says nothing about which licence the code is actually under or whether the
-result may be promoted anywhere. A borrowed directory in an experiment whose
-record declares nothing passes, because an absent field is never refused.
+result may be promoted anywhere. The undeclared quarantine is refused on the
+directory rather than on the missing field, so an experiment that borrows
+nothing is still never asked for one: an absent field is refused nowhere here,
+and what is read is a directory that is there.
 
 Add `Held-back` where the experiment is held back under
 `docs/decisions/0010-a-flaw-in-shipped-software.md`, with the date of the report

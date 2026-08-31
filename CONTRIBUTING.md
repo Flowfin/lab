@@ -125,18 +125,23 @@ borrows nothing writes no such line.
 Some of that a run refuses and some of it it does not, and the difference is
 worth knowing before you lean on any of it. A `borrowed/` directory with no
 `LICENSE` beside it is refused. So is a record declaring `Borrowed:` in an
-experiment that holds no such directory. So is a directory named `borrowed`
+experiment that holds no such directory, and so is the other direction of the
+same disagreement, a `borrowed/` directory in an experiment whose record
+declares no `Borrowed:` at all. So is a directory named `borrowed`
 anywhere else inside an experiment, since `experiments/<slug>/borrowed` is the
 one place a quarantine lives and one is all record `0019` allows. A directory
 of that name inside the quarantine is not refused: what is in there is somebody
 else's code laid out somebody else's way, and this board's rules stop at that
 edge.
 
-What still passes is a `borrowed/` directory in an experiment whose record
-declares nothing, because a field added to the format after
+The direction that reads an undeclared quarantine is refused on the directory
+and never on the absent field, and that is the reason it is allowed to exist.
 [docs/decisions/0013-how-the-record-format-changes.md](docs/decisions/0013-how-the-record-format-changes.md)
-is never refused for being absent. That one is yours to keep rather than the
-gate's.
+says a field added to the format after it is optional and that an absent field
+is never a refusal, and nothing here reads an absence: the subject is a
+directory that is present, and a tree carrying one has already said it borrows
+before any header is opened. An experiment that borrows nothing still writes
+nothing and is still never asked about the field.
 
 Nothing opens the licence file. A green run says the layout and the declaration
 do not contradict each other, and it says nothing about which licence the code
