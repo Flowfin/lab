@@ -69,6 +69,31 @@ const (
 	// quarantine is undeclared by construction however carefully the header
 	// was written.
 	AQuarantineOutsideThePlaceQuarantinesLive = "quarantine-outside-the-place-quarantines-live"
+
+	// BorrowedDirectoryTheRecordDoesNotDeclare refuses an experiment that holds
+	// a quarantine while its record declares no Borrowed field. That is the
+	// second direction of the disagreement above: the tree says the experiment
+	// borrows and the record says nothing, so the person promoting the work
+	// reads a boundary and finds no source and no licence named anywhere they
+	// would look for one.
+	//
+	// IT IS KEYED ON THE DIRECTORY AND NOT ON THE ABSENT FIELD, and the
+	// difference is the whole reason it may exist. Record 0013 says a field
+	// added to the format after it is optional and that an absent field is
+	// never a refusal, which is why refuseHardware declines the identical shape
+	// one field over. Nothing here reads an absence and refuses it: what is
+	// refused is a directory that is present, and a tree carrying one has
+	// already said it borrows without the header being consulted at all. So
+	// every experiment that borrows nothing goes on writing nothing, which is
+	// the property record 0013 bought and this does not spend.
+	//
+	// WHERE IT DOES NOT REACH. A quarantine somewhere other than
+	// experiments/<slug>/borrowed is not this arm's subject - it is refused by
+	// the arm above, whose repair is to move it, and this one then reads the
+	// moved directory. So an experiment whose only borrowed directory is in the
+	// wrong place is refused once rather than twice, and the second refusal
+	// arrives with the repair rather than beside the defect.
+	BorrowedDirectoryTheRecordDoesNotDeclare = "borrowed-directory-the-record-does-not-declare"
 )
 
 // refuseBorrowed holds an experiment's borrowed quarantine and its record's
@@ -82,13 +107,7 @@ const (
 // record 0019 explicitly leaves undecided. What passes here is a layout and a
 // declaration that do not contradict each other, and nothing further.
 //
-// WHERE IT DOES NOT REACH, in three places rather than one.
-//
-// A borrowed directory in an experiment whose record declares no Borrowed field
-// passes. That is the second direction of the disagreement above and it is a
-// refusal on an absent field, which record 0013 forbids in the words
-// refuseHardware already declines the same shape in. Closing it is a change to
-// that record rather than a wider check here.
+// WHERE IT DOES NOT REACH, in two places rather than three.
 //
 // A Borrowed declaration written with nothing after the colon is a declaration,
 // so the directory half above is read against it, and nothing here asks whether
@@ -141,16 +160,26 @@ func refuseBorrowed(fsys fs.FS, root, inside, record string, data []byte) ([]Ref
 	if err != nil {
 		return refusals, nil
 	}
-	if _, declared := parsed.Field(FieldBorrowed); !declared || held {
-		return refusals, nil
+	_, declared := parsed.Field(FieldBorrowed)
+
+	switch {
+	case declared && !held:
+		refusals = append(refusals, Refusal{
+			Property: RecordBorrowedDeclarationNamesNoDirectory,
+			Subject:  record,
+			Detail: fmt.Sprintf("it declares %s and there is no %s directory in %s, so the record says the experiment borrows and the tree says it does not",
+				FieldBorrowed, BorrowedDir, inside),
+		})
+	case held && !declared:
+		refusals = append(refusals, Refusal{
+			Property: BorrowedDirectoryTheRecordDoesNotDeclare,
+			Subject:  at(root, quarantine),
+			Detail: fmt.Sprintf("it holds code under somebody else's terms and %s declares no %s, so the tree says the experiment borrows and the record says nothing. record 0019 puts the source and the licence in that field",
+				record, FieldBorrowed),
+		})
 	}
 
-	return append(refusals, Refusal{
-		Property: RecordBorrowedDeclarationNamesNoDirectory,
-		Subject:  record,
-		Detail: fmt.Sprintf("it declares %s and there is no %s directory in %s, so the record says the experiment borrows and the tree says it does not",
-			FieldBorrowed, BorrowedDir, inside),
-	}), nil
+	return refusals, nil
 }
 
 // refuseQuarantineElsewhere walks an experiment for a directory named borrowed
