@@ -65,8 +65,8 @@ names which corners those were while the reason is still remembered.
 ## What promotion does not create
 
 It is not a promise of support from this board. Nothing here is maintained
-against anybody else's use of it, and an experiment does not gain a maintainer
-by being taken somewhere.
+against anybody else's use of it, and an experiment does not gain anybody who
+will keep it working by being taken somewhere.
 
 It is not a claim that the code is finished. The line above about what would
 have to change is the measure of that, and it is part of the hand-over rather
