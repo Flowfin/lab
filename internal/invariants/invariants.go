@@ -71,9 +71,9 @@ const (
 )
 
 // DeclaredLicence is the licence this repository has decided on. Record 0018
-// answers entry one of the maintainer question issue with GPL-3.0, one licence
-// for the runner and the experiment content alike, and issue #47 is the change
-// that lands the file and sets this string.
+// answers entry one of issue #46 with GPL-3.0, one licence for the runner and
+// the experiment content alike, and issue #47 is the change that lands the file
+// and sets this string.
 //
 // IT IS SPELLED AS THE TITLE LINE RATHER THAN AS THE SPDX IDENTIFIER, and that
 // is forced by what the leg below asks. The leg asks whether the licence file
@@ -368,7 +368,7 @@ func licenceLeg(root, declaredLicence string) (Leg, []Refusal) {
 		return Leg{
 			Name: "the licence",
 			NotAsked: fmt.Sprintf("no licence is declared, so there is nothing to compare %s against. "+
-				"asking costs answering entry one of the maintainer question issue and landing the file, "+
+				"asking costs answering entry one of issue #46 and landing the file, "+
 				"the repository metadata and the decision record that names it, which is issue #47", LicenceName),
 		}, nil
 	}

@@ -705,7 +705,7 @@ below is the one that was absent either way.
 | Parameter | Here | Target | Verdict |
 | --- | --- | --- | --- |
 | `allowed_merge_methods` | `["merge","squash","rebase"]` | `["merge"]` | Change owed. This is the one deviation in this walk worth closing rather than reasoning away, and the reason is below. |
-| `required_approving_review_count` | `0` | `0` | Kept. A count above zero on a board with one maintainer refuses every merge, and a rule nobody can satisfy is switched off in a hurry rather than met. |
+| `required_approving_review_count` | `0` | `0` | Kept. A count above zero on a board where I am the only reviewer refuses every merge, and a rule nobody can satisfy is switched off in a hurry rather than met. |
 | `dismiss_stale_reviews_on_push` | `false` | `false` | Kept. It only bites where a review is required, and none is required at a count of zero. |
 | `require_last_push_approval` | `false` | `false` | Kept, for the reason in the row above. |
 | `required_review_thread_resolution` | `false` | `false` | Kept, for the reason two rows above. |
