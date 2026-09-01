@@ -750,10 +750,12 @@ requires it to stay empty, so nothing here adds a second rule about it.
 ### The pull-request rule, parameter by parameter
 
 Every parameter the third command prints, with the target's value beside it. On
-2026-08-10 all but the first held the same value on both boards, and that is
-still the reading on 2026-08-21. A setting left at its default and a setting
-chosen deliberately look identical afterwards, which is why every row carries a
-reason and not only a verdict.
+2026-08-10 all but the first held the same value on both boards, and that stayed
+the reading through 2026-08-30. Re-read on 2026-09-01 all nine hold the same
+value on both boards, because the first row is the one that moved and it moved
+towards the target. A setting left at its default and a setting chosen
+deliberately look identical afterwards, which is why every row carries a reason
+and not only a verdict.
 
 The table listed eight rows and the command prints nine names. Which of the two
 that is, a parameter the platform started printing after the table was written
@@ -762,7 +764,7 @@ below is the one that was absent either way.
 
 | Parameter | Here | Target | Verdict |
 | --- | --- | --- | --- |
-| `allowed_merge_methods` | `["merge","squash","rebase"]` | `["merge"]` | Change owed. This is the one deviation in this walk worth closing rather than reasoning away, and the reason is below. |
+| `allowed_merge_methods` | `["merge"]` | `["merge"]` | Changed here, and it is the only row in this table whose value has ever moved. It read `["merge","squash","rebase"]` at every reading of this walk from 2026-08-10 to 2026-08-30, which is why the subsection below is longer than a row that agrees usually needs: the reason for the restriction lives there because the parameter itself can carry none. |
 | `required_approving_review_count` | `0` | `0` | Kept. A count above zero on a board where I am the only reviewer refuses every merge, and a rule nobody can satisfy is switched off in a hurry rather than met. |
 | `dismiss_stale_reviews_on_push` | `false` | `false` | Kept. It only bites where a review is required, and none is required at a count of zero. |
 | `require_last_push_approval` | `false` | `false` | Kept, for the reason in the row above. |
@@ -788,10 +790,37 @@ were rewritten by the merge that landed them is a pointer the receiving board
 cannot follow.
 
 Restricting the methods to `["merge"]` is what keeps a named commit resolvable.
-The restriction is not in place. The third command above still prints all three
-methods on this board, so a squash or a rebase merge here can break a record of
-either kind, and the only thing standing against it today is whoever picks the
-button. Issue #55 holds the change.
+The restriction is in place. Read on 2026-09-01:
+
+```
+gh api repos/Flowfin/lab/rules/branches/main \
+  --jq '.[] | select(.type=="pull_request") | .parameters.allowed_merge_methods'
+["merge"]
+```
+
+WHAT STOOD HERE SAID THE RESTRICTION WAS NOT IN PLACE, and named the only thing
+standing against a squash as whoever picks the button. That was the reading at
+every earlier date in this walk and it stopped reproducing when the parameter was
+edited. It is the same class the subsection below is about, arriving in the
+direction that flatters nobody: a document describing a live setting goes wrong
+whichever way the setting moves, and a stale sentence claiming a gap that has
+been closed is as wrong as a stale sentence claiming a gap that has not.
+
+The two paragraphs above are the reason, and this is where they live rather than
+only in the issue that asked for the edit. `allowed_merge_methods` is a parameter
+on a ruleset that is not in this tree, nothing beside it holds a comment, and a
+platform setting carries no argument for itself, so a reader who finds `["merge"]`
+and wants to know why it is not the default set has this section and nothing else.
+Restoring `squash` or `rebase` breaks record 0004's removal line and record 0005's
+promotion range, both of which name a commit in this repository that survives only
+where the merge does not rewrite it.
+
+It is a setting rather than a mechanism, which is the bound this whole document
+carries and which this row does not escape. No check in this tree reads
+`allowed_merge_methods`, a run here stays green whichever way it is set, and the
+edit that restored the other two methods would take about as long as the one that
+removed them. What refuses a squash today is the platform, and what would notice
+it being switched back is somebody re-running the command above.
 
 ### The rule both boards carry now, and the condition it arrived ahead of
 
@@ -918,8 +947,10 @@ contributor who holds none, and record 0023 says in as many words that it
 decides a signature is required and does not decide what happens to somebody
 with no key. Whether the setting should stand at all is still not a question
 this walk takes, and it is not one this document can answer: the ruleset is not
-in this tree, and `allowed_merge_methods` remains the only ruleset edit this
-document asks for.
+in this tree. The only ruleset edit this document still asks for is the required
+status checks issue #26 assembles. `allowed_merge_methods` was the other one and
+has been made, which the row above and the subsection under the table both read
+against the live parameter rather than against the sentence that stood here.
 
 A rule that is configured is not a rule this tree refuses, and that is the half
 of this section a reader is most likely to collapse in the other direction now.
