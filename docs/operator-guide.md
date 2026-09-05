@@ -289,6 +289,11 @@ already on the default branch on the day it changes is
 [docs/decisions/0013-how-the-record-format-changes.md](decisions/0013-how-the-record-format-changes.md),
 which is where that was decided, rather than restated here.
 
-There is no changelog in this repository and no release for one to carry an
-entry for, so today a change to the format is announced by the record that
-decides it and by nothing else.
+This page said until now that there is no changelog in this repository and no
+release for one to carry an entry for, so that a change to the format was
+announced by the record that decides it and by nothing else. Both halves have
+ended. [CHANGELOG.md](../CHANGELOG.md) is at the root of the checkout, it carries
+an entry for the first release, and it is where a change that would invalidate
+records already on the default branch is announced. The record under
+docs/decisions/ is still where such a change is decided; the changelog is where
+somebody running a version finds out about it.

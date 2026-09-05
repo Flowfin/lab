@@ -4,24 +4,34 @@ Report privately, through the form under Security on this repository:
 
     https://github.com/Flowfin/lab/security/advisories/new
 
-The route is a repository setting rather than a file, and it does not answer
-today:
+That is the whole channel. A report sent anywhere else is not received: no
+mailbox is published for this board, and there is no second private route to
+fall back to. A report about somebody's behaviour rather than about the software
+takes the same form, and
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) is where that is written down.
+
+The route is a repository setting rather than a file, and this paragraph said
+until now that it does not answer. It answers:
 
     gh api repos/Flowfin/lab/private-vulnerability-reporting
-    {"enabled":false}
+    {"enabled":true}
 
-Run 2026-08-19. So this file names the destination and says plainly that it is
-shut, rather than sending a reporter to a door that does not open. The address
-is the one the form uses once the setting is on, so nothing here moves when it
-changes. Until then the honest alternative is a public issue carrying as little
-detail as the report can carry: the software, the shape of the problem, and an
-offer to send the rest privately. That is a poor arrangement and is written
-down as one. Issue #10 is where this file lands and where the gap belongs.
+Run 2026-09-05, against the same repository as the earlier reading of the same
+command, which returned `{"enabled":false}` on 2026-08-19 and is what the
+paragraph here was written around. The address did not move when the setting
+changed, which is why it was safe to publish while the door was shut.
 
-With no policy in this repository, what a reader has been shown until now is
-the organisation default, which says the private form is enabled on every
-repository here and that a first answer arrives within a few days. Neither is
-true of this repository today. This file is what governs this one.
+WHAT THAT ENDS IS THE ALTERNATIVE THIS FILE USED TO OFFER. It said that until
+the form opened, the honest fallback was a public issue carrying as little
+detail as a report can carry. There is no such fallback now and there should not
+be one: a public issue about a vulnerability is the outcome a security policy
+exists to prevent, and it was written down here as a poor arrangement while it
+was the only one. Do not open one. The form above is where a report goes.
+
+The organisation default policy is still served on repositories in this
+organisation that carry no policy of their own, and it says the private form is
+enabled on every repository here. That is now true of this one. This file is
+what governs this one, and where the two differ this one wins.
 
 ## What is here, because the description undersells it
 
@@ -62,11 +72,22 @@ somebody's licence is in scope.
 
 A workflow that grants more than its job needs, or that can be made to run a
 fork's code with a token. Nothing here is triggered by `pull_request_target` or
-`workflow_run`, which I checked across all thirteen files in
+`workflow_run`, which I checked across all fifteen files in
 `.github/workflows` today, every workflow declares an empty or read-only scope
 at the top level, `persist-credentials` is off at every checkout, and the
 actions are pinned by commit. Anything that undoes one of those is worth
 reporting before something uses it.
+
+A published artefact that does not match what this board says it published.
+There is a release now, and every file in it is covered by `SHA256SUMS` with
+`SHA256SUMS.sig` over that file, verified against the signing keys the platform
+publishes for the account that cut it rather than against a key shipped beside
+the signature. The release notes carry the two commands. A downloaded file whose
+digest does not match its line, a checksum file whose signature does not verify,
+or a release asset that appeared or changed after the release was published, are
+each a report I want. Which of those is a compromise and which is a mistake on my
+side is not something a reader can tell from outside, and that is exactly why it
+comes here rather than being assumed to be the second.
 
 A break in a claim this repository publishes. It says the runner opens no
 network connection and writes nothing to the tree it walks, and
@@ -136,10 +157,20 @@ There is no server, no socket, no account, no session, no database and no
 stored personal data anywhere in this repository. The runner reads files and
 prints what it found, so most of what a reader arrives with does not exist
 here: nothing to log in to, nothing to escalate into, nothing to enumerate, and
-no request path to inject anything into. Nothing is published as a binary
-either. `gh api repos/Flowfin/lab/releases` and `gh api repos/Flowfin/lab/tags`
-both answer with an empty list today, so there is no artefact anybody
-downloaded and none to have been tampered with.
+no request path to inject anything into.
+
+WHAT THIS PARAGRAPH USED TO SAY NEXT WAS THAT NOTHING IS PUBLISHED AS A BINARY,
+AND IT QUOTED TWO EMPTY LISTS FOR IT. Both answer with one entry now:
+
+    gh api repos/Flowfin/lab/releases --jq 'length'
+    1
+    gh api repos/Flowfin/lab/tags --jq 'length'
+    1
+
+Run 2026-09-05. So there is an artefact somebody can have downloaded, and the
+sentence saying there is none to have been tampered with has stopped being true.
+What replaces it is the paragraph above about a published artefact, which is a
+report I want rather than a class this file waves away.
 
 A refusal you disagree with is not a vulnerability, and neither is a check that
 is too strict about a legitimate tree, nor a supply-chain score lower than you
@@ -163,6 +194,11 @@ window, so stating one would be a promise that goes quietly wrong on the first
 busy week, and a reporter told to expect an answer by a date who does not get
 one is left guessing whether the report arrived at all.
 
-What is covered is the default branch as it stands. There are no releases and
-no tags, no version is maintained in parallel, and nothing to backport a fix
-to: a fix is a commit on `main`, and whoever wants it takes a newer checkout.
+What is covered is the default branch as it stands, and the most recent release.
+This paragraph said there were no releases and no tags; there is one of each, and
+the reading is in the section above. No version is maintained in parallel and
+there is nothing to backport a fix to: a fix is a commit on `main`, the release
+after it carries the fix, and whoever wants it takes a newer checkout or a newer
+artefact. An older release is not patched in place and its assets are not
+replaced, because replacing a file that a published checksum and signature
+already cover is the shape a reader has no way to tell from tampering.
